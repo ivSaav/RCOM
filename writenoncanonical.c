@@ -58,7 +58,7 @@ int main(int argc, char** argv)
 
   /* 
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-    leitura do(s) próximo(s) caracter(es)
+    leitura do(s) prï¿½ximo(s) caracter(es)
   */
 
 
@@ -71,23 +71,22 @@ int main(int argc, char** argv)
     }
 
     printf("New termios structure set\n");
-
-
-
-    for (i = 0; i < 255; i++) {
-      buf[i] = 'a';
+  
+	  fgets(buf, 255, stdin);
+    for (int i = 0; i < 255; i++) {
+      if (buf[i] == '\n'){
+        buf[i] = '\0';
+        break;
+      }
     }
-    
-    /*testing*/
-    buf[25] = '\n';
     
     res = write(fd,buf,255);   
     printf("%d bytes written\n", res);
- 
+	
 
   /* 
-    O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar 
-    o indicado no guião 
+    O ciclo FOR e as instruï¿½ï¿½es seguintes devem ser alterados de modo a respeitar 
+    o indicado no guiï¿½o 
   */
 
 
@@ -98,6 +97,7 @@ int main(int argc, char** argv)
       exit(-1);
     }
 
+	sleep(1);
 
 
 
