@@ -56,7 +56,7 @@ int main(int argc, char** argv)
 
   /* 
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-    leitura do(s) próximo(s) caracter(es)
+    leitura do(s) prï¿½ximo(s) caracter(es)
   */
 
 
@@ -71,17 +71,28 @@ int main(int argc, char** argv)
     printf("New termios structure set\n");
 
 
-    while (STOP==FALSE) {       /* loop for input */
-      res = read(fd,buf,255);   /* returns after 5 chars have been input */
-      buf[res]=0;               /* so we can printf... */
-      printf(":%s:%d\n", buf, res);
-      if (buf[0]=='z') STOP=TRUE;
+    // int i = 0;
+    // while (STOP==FALSE) {       /* loop for input */
+    //   res = read(fd,buf[i],255);   /* returns after 5 chars have been input */
+    //   buf[res]=0;               /* so we can printf... */
+    //   printf(":%s:%d\n", buf, res);
+    //   if (buf[0]=='\0') STOP=TRUE;
+    // }
+
+    int i = 0;
+
+    while (STOP==FALSE) {
+      res = read(fd, buf[i], 1);
+      if(buf[i] == '/0'){
+        break;
+      }
+      i++;
     }
 
 
 
   /* 
-    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião 
+    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guiï¿½o 
   */
 
 
