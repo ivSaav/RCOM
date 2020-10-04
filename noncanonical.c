@@ -5,6 +5,8 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <string.h>
 
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -19,12 +21,12 @@ int main(int argc, char** argv)
     struct termios oldtio,newtio;
     char buf[255];
 
-    if ( (argc < 2) || 
-  	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-      printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-      exit(1);
-    }
+    // if ( (argc < 2) || 
+  	//      ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+  	//       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+    //   printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+    //   exit(1);
+    // }
 
 
   /*
@@ -70,32 +72,21 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-
-    // int i = 0;
-    // while (STOP==FALSE) {       /* loop for input */
-    //   res = read(fd,buf[i],255);   /* returns after 5 chars have been input */
-    //   buf[res]=0;               /* so we can printf... */
-    //   printf(":%s:%d\n", buf, res);
-    //   if (buf[0]=='\0') STOP=TRUE;
-    // }
-
-    int i = 0;
-
-    while (STOP==FALSE) {
-      res = read(fd, buf[i], 1);
-      if(buf[i] == '/0'){
+    //read message sent by writenoncanonical
+    int n = 0;
+    char msg[255];
+    while (true) {   
+      res = read(fd,buf,1);  
+      strcat(msg, buf);
+      if (msg[n++] == '\0')
         break;
-      }
-      i++;
     }
+    printf("> %s\n", msg);
 
 
-
-  /* 
-    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no gui�o 
-  */
-
-
+    //resend message
+    res = write(fd,msg,n);   
+    printf("%d bytes written\n", res);
 
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);

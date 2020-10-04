@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #define BAUDRATE B38400
 #define MODEMDEVICE "/dev/ttyS1"
@@ -21,19 +22,18 @@ int main(int argc, char** argv)
     char buf[255];
     int i, sum = 0, speed = 0;
     
-    if ( (argc < 2) || 
-  	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-      printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-      exit(1);
-    }
+    // if ( (argc < 2) || 
+  	//     //  ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+  	//     //   (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+    //   printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+    //   exit(1);
+    // }
 
 
   /*
     Open serial port device for reading and writing and not as controlling tty
     because we don't want to get killed if linenoise sends CTRL-C.
   */
-
 
     fd = open(argv[1], O_RDWR | O_NOCTTY );
     if (fd <0) {perror(argv[1]); exit(-1); }
@@ -69,26 +69,31 @@ int main(int argc, char** argv)
     }
 
     printf("New termios structure set\n");
-  
+
+    //send message
 	  fgets(buf, 255, stdin);
-    for (int i = 0; i < 255; i++) {
-      if (buf[i] == '\n'){
-        buf[i] = '\0';
+    int nbytes = 0;
+    for (; nbytes < 255; nbytes++) {
+      if (buf[nbytes] == '\n'){
+        buf[nbytes] = '\0';
         break;
       }
     }
     
-    res = write(fd,buf,255);   
+    res = write(fd,buf,nbytes+1);   
     printf("%d bytes written\n", res);
-	
 
-  /* 
-    O ciclo FOR e as instru��es seguintes devem ser alterados de modo a respeitar 
-    o indicado no gui�o 
-  */
-
-
-
+    //read message sent by noncanonical
+    int n = 0;
+    char msg[255];
+    char rcv_buf[255];
+    while (true) {   
+      res = read(fd, rcv_buf, 1);
+      strcat(msg, rcv_buf);
+      if (msg[n++] == '\0')
+        break;
+    }
+    printf("> %s\n", msg);
    
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");
@@ -96,8 +101,6 @@ int main(int argc, char** argv)
     }
 
 	  sleep(1);
-
-
 
     close(fd);
     return 0;
