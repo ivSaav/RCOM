@@ -15,6 +15,8 @@
 #define FALSE 0
 #define TRUE 1
 
+#define BUF_SIZE 5
+
 #define DELIM 0x7E  //delimiter
 #define A_RC  0x01  //commands sent by 'Receptor' and answers sent by 'Emissor'
 #define A_EM  0x03  //commands sent by 'Emissor' and answers sent by the 'Receptor'
@@ -44,8 +46,7 @@ int stateMachine(int fd) {
      
     //read field sent by writenoncanonical
     unsigned char byte;
-    int res = read(fd,buf,5);
-
+    int res = read(fd,&byte,1);
     buf[i] = byte;
     printf("st: %d  buf: %X\n", st, buf[i]);  
 
@@ -123,7 +124,7 @@ int stateMachine(int fd) {
       }
     }
 
-    printf("%X", buf);
+    printf("%s", buf);
   
     return 0;
 }
@@ -187,22 +188,15 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-    stateMachine(fd);
-    //read message sent by writenoncanonical
-    // int n = 0;
-    // char msg[255];
-    // while (true) {   
-    //   res = read(fd,buf,1);  
-    //   strcat(msg, buf);
-    //   if (msg[n++] == '\0')
-    //     break;
-    // }
-    // printf("> %s\n", msg);
+    if (stateMachine(fd)) {
+      perror("stateMachine");
+      exit(1);
+    }
 
+    // send acknowledgement
+    unsigned char buffer[5] = {DELIM, A_EM, UA,  A_EM^UA, DELIM};
+    res = write(fd,buffer,BUF_SIZE); 
 
-    // //resend message
-    // res = write(fd,msg,n);   
-    // printf("%d bytes written\n", res);
 
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);

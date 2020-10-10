@@ -15,12 +15,6 @@
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
-#define FLAG 0x7E
-#define A_RCV 0x01 //em Comandos enviados pelo Receptor e Respostas enviadas pelo Emissor
-#define A_EMT 0x03 //em Comandos enviados pelo Emissor e Respostas enviadas pelo Receptor 
-#define C_SET 0x03 // 
-
-
 
 #define BUF_SIZE 5
 
@@ -36,6 +30,105 @@
 
 
 volatile int STOP=FALSE;
+
+int receiveAck(int fd) {
+  
+  enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP};
+
+  enum state st = START;
+  //read message sent by writenoncanonical
+
+  int n = 0;
+  unsigned char buf[6];
+
+  int i = 0;
+  bool end = false;
+
+  unsigned char bcc = 0;
+  while (!end) { 
+     
+    //read field sent by writenoncanonical
+    unsigned char byte;
+    int res = read(fd,&byte,1);
+    buf[i] = byte;
+    printf("st: %d  buf: %X\n", st, buf[i]);  
+
+    switch (st) {
+
+      case START:
+
+        if (buf[i] == DELIM) {
+          st = FLAG_RCV;
+          i++;
+        }
+        break;
+
+      case FLAG_RCV:  //TODO: define other control commands
+
+        if (buf[i] == A_EM) {
+          st = A_RCV;
+          i++;
+        }
+        else if (buf[i] == FLAG_RCV) {
+          continue;
+        }
+        else {
+          i = 0;
+          st = START;
+        }
+        break;
+
+      case A_RCV:
+
+        if (buf[i] == UA) {
+          st = C_RCV;
+          i++;
+        }
+        else if (buf[i] == FLAG_RCV) {
+            st = FLAG_RCV;
+            i = 1;
+        }
+        else {
+            st = START;
+            i = 0;
+        }
+        break;
+
+      case C_RCV:
+
+        bcc = buf[1]^buf[2];
+
+        if (buf[i] == bcc) {
+            st = BCC_OK;
+            i++;
+        }
+        else if (buf[i] == FLAG_RCV) {
+          st = FLAG_RCV;
+          i = 1;
+        }
+        else {
+          st = START;
+          i = 0;
+        }
+        break;
+
+      case BCC_OK:
+
+        if (buf[i] == DELIM) {
+          end = true;
+        }
+        else {
+          st = START;
+          i = 0;
+        }
+
+      break;
+
+      }
+    }
+  
+    return 0;
+}
 
 int main(int argc, char** argv)
 {
@@ -92,41 +185,17 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
+    unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
+    res = write(fd,buffer,BUF_SIZE); 
 
-    unsigned char buffer[5] = {FLAG, A_EMT, C_SET,  A_EMT^C_SET, FLAG};
-    res = write(fd,buf,BUF_SIZE); 
-    printf("%d iiuah\n", res);  
-
-       // //send message
-	  // fgets(buf, 255, stdin);
-    // int nbytes = 0;
-    // for (; nbytes < 255; nbytes++) {
-    //   if (buf[nbytes] == '\n'){
-    //     buf[nbytes] = '\0';
-    //     break;
-    //   }
-    // }
-    // printf("%d bytes written\n", res);
-
-    // //read message sent by noncanonical
-    // int n = 0;
-    // char msg[255];
-    // char rcv_buf[255];
-    // while (true) {   
-    //   res = read(fd, rcv_buf, 1);
-    //   strcat(msg, rcv_buf);
-    //   if (msg[n++] == '\0')
-    //     break;
-    // }
-    // printf("> %s\n", msg);
-
+    receiveAck(fd);
    
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");
       exit(-1);
     }
 
-	  sleep(10);
+	  sleep(1);
 
     close(fd);
     return 0;
