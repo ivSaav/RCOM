@@ -15,6 +15,12 @@
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
+#define FLAG 0x7E
+#define A_RCV 0x01 //em Comandos enviados pelo Receptor e Respostas enviadas pelo Emissor
+#define A_EMT 0x03 //em Comandos enviados pelo Emissor e Respostas enviadas pelo Receptor 
+#define C_SET 0x03 // 
+
+
 
 #define BUF_SIZE 5
 
@@ -86,12 +92,8 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-    buf[0] = DELIM;
-    buf[1] = A_EM;
-    buf[2] = SET;
-    buf[3] = buf[1]^buf[2];
-    buf[4] = DELIM;
 
+    unsigned char buffer[5] = {FLAG, A_EMT, C_SET,  A_EMT^C_SET, FLAG};
     res = write(fd,buf,BUF_SIZE); 
     printf("%d iiuah\n", res);  
 
@@ -117,6 +119,7 @@ int main(int argc, char** argv)
     //     break;
     // }
     // printf("> %s\n", msg);
+
    
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");
