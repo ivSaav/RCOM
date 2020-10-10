@@ -12,6 +12,12 @@
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
+#define FLAG 0x7E
+#define A_RCV 0x01 //em Comandos enviados pelo Receptor e Respostas enviadas pelo Emissor
+#define A_EMT 0x03 //em Comandos enviados pelo Emissor e Respostas enviadas pelo Receptor 
+#define C_SET 0x03 // 
+
+
 
 volatile int STOP=FALSE;
 
@@ -70,17 +76,9 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-    //send message
-	  fgets(buf, 255, stdin);
-    int nbytes = 0;
-    for (; nbytes < 255; nbytes++) {
-      if (buf[nbytes] == '\n'){
-        buf[nbytes] = '\0';
-        break;
-      }
-    }
+    unsigned char buffer[5] = {FLAG, A_EMT, C_SET,  A_EMT^C_SET, FLAG};
     
-    res = write(fd,buf,nbytes+1);   
+    res = write(fd, buffer, sizeof(buffer));   
     printf("%d bytes written\n", res);
 
     //read message sent by noncanonical
