@@ -37,11 +37,12 @@ int attemps = 0;
 bool tryToSend = true, timeout = false;
 
 void signalHandler(){
-  printf("Failed to read!\n");
+  printf("signal\n");
   timeout = true;
 
   if(attemps == MAX_ATTEMPTS){
     tryToSend = false;
+    printf("max try\n");
   }
   else{
     attemps++;
@@ -69,7 +70,7 @@ int receiveAck(int fd) {
     unsigned char byte;
     int res = read(fd,&byte,1);
     buf[i] = byte;
-    printf("st: %d  buf: %X\n", st, buf[i]);  
+    //printf("st: %d  buf: %X\n", st, buf[i]);  
 
     switch (st) {
 
@@ -206,14 +207,18 @@ int main(int argc, char** argv)
     unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
     res = write(fd,buffer,BUF_SIZE); 
 
+
     while(tryToSend){
       alarm(3);
       if(receiveAck(fd) == 0){
-        tryToSend = false;
+        break;
       }
+
+      
       printf("try to read again\n");
     }
-   
+
+    printf("exited\n");
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");
       exit(-1);
