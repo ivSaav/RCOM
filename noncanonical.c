@@ -36,14 +36,14 @@ int stateMachine(int fd) {
     bool end = false;
     while (!end) {   
       //read field sent by writenoncanonical
-      res = read(fd,buf[i],1);  
+      int res = read(fd,buf[i],1);  
 
-      switch (state) {
+      switch (st) {
 
         case START:
 
           if (buf[i] == DELIM) {
-            state = FLAG_RCV;
+            st = FLAG_RCV;
             i++;
           }
           break;
@@ -51,7 +51,7 @@ int stateMachine(int fd) {
         case FLAG_RCV:  //TODO: define other control commands
 
           if (buf[i] == A_EM) {
-            state = A_RCV;
+            st = A_RCV;
             i++;
           }
           else if (buf[i] == FLAG_RCV) {
@@ -59,22 +59,22 @@ int stateMachine(int fd) {
           }
           else {
             i = 0;
-            state = START;
+            st = START;
           }
           break;
 
         case A_RCV:
 
           if (buf[i] == SET) {
-            state = C_RCV;
+            st = C_RCV;
             i++;
           }
           else if (buf[i] == FLAG_RCV) {
-              state = FLAG_RCV;
+              st = FLAG_RCV;
               i = 1;
           }
           else {
-              state = START;
+              st = START;
               i = 0;
           }
           break;
@@ -84,15 +84,15 @@ int stateMachine(int fd) {
           unsigned char bcc = buf[1]^buf[2];
 
           if (buf[i] == bcc) {
-              state = BCC_OK;
+              st = BCC_OK;
               i++;
           }
           else if (buf[i] == FLAG_RCV) {
-            state = FLAG_RCV;
+            st = FLAG_RCV;
             i = 1;
           }
           else {
-            state = START;
+            st = START;
             i = 0;
           }
           break;
@@ -103,7 +103,7 @@ int stateMachine(int fd) {
             end = true;
           }
           else {
-            state = START;
+            st = START;
             i = 0;
           }
 
