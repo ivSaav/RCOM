@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <signal.h>
+#include <stdbool.h>
 
 #define BAUDRATE B38400
 #define MODEMDEVICE "/dev/ttyS1"
@@ -28,8 +30,23 @@
 #define RR    0x05  //receiver ready
 #define REJ   0x01  //reject 
 
+#define MAX_ATTEMPTS 3
 
 volatile int STOP=FALSE;
+int attemps = 0;
+bool tryToSend = true, timeout = false;
+
+void signalHandler(){
+  printf("Failed to read!\n");
+  timeout = true;
+
+  if(attemps == MAX_ATTEMPTS){
+    tryToSend = false;
+  }
+  else{
+    attemps++;
+  }
+}
 
 int receiveAck(int fd) {
   
@@ -43,9 +60,10 @@ int receiveAck(int fd) {
 
   int i = 0;
   bool end = false;
+  timeout = false;
 
   unsigned char bcc = 0;
-  while (!end) { 
+  while (!(end || timeout)) { 
      
     //read field sent by writenoncanonical
     unsigned char byte;
@@ -115,7 +133,7 @@ int receiveAck(int fd) {
       case BCC_OK:
 
         if (buf[i] == DELIM) {
-          end = true;
+          return 0;
         }
         else {
           st = START;
@@ -127,7 +145,7 @@ int receiveAck(int fd) {
       }
     }
   
-    return 0;
+    return 1;
 }
 
 int main(int argc, char** argv)
@@ -143,14 +161,14 @@ int main(int argc, char** argv)
     //   printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
     //   exit(1);
     // }
-
+    (void) signal(SIGALRM, signalHandler);
 
   /*
     Open serial port device for reading and writing and not as controlling tty
     because we don't want to get killed if linenoise sends CTRL-C.
   */
 
-    fd = open(argv[1], O_RDWR | O_NOCTTY );
+    fd = open(argv[1], O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (fd <0) {perror(argv[1]); exit(-1); }
 
     if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
@@ -188,7 +206,13 @@ int main(int argc, char** argv)
     unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
     res = write(fd,buffer,BUF_SIZE); 
 
-    receiveAck(fd);
+    while(tryToSend){
+      alarm(3);
+      if(receiveAck(fd) == 0){
+        tryToSend = false;
+      }
+      printf("try to read again\n");
+    }
    
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");

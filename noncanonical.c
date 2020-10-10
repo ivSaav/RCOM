@@ -192,7 +192,7 @@ int main(int argc, char** argv)
       perror("stateMachine");
       exit(1);
     }
-
+    sleep(5);
     // send acknowledgement
     unsigned char buffer[5] = {DELIM, A_EM, UA,  A_EM^UA, DELIM};
     res = write(fd,buffer,BUF_SIZE); 
