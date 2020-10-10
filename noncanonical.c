@@ -1,10 +1,12 @@
 /*Non-Canonical Input Processing*/
 
 #include <sys/types.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -24,93 +26,104 @@
 #define REJ   0x01  //reject 
 
 int stateMachine(int fd) {
-
+  
   enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP};
 
   enum state st = START;
   //read message sent by writenoncanonical
-    int n = 0;
-    unsigned char buf[6];
 
-    int i = 0;
-    bool end = false;
-    while (!end) {   
-      //read field sent by writenoncanonical
-      int res = read(fd,buf[i],1);  
+  int n = 0;
+  unsigned char buf[6];
 
-      switch (st) {
+  int i = 0;
+  bool end = false;
 
-        case START:
+  unsigned char bcc = 0;
+  while (!end) { 
+    printf("here\n");
+     
+    //read field sent by writenoncanonical
+    unsigned char byte;
+    int res = read(fd,buf,5);
 
-          if (buf[i] == DELIM) {
-            st = FLAG_RCV;
-            i++;
-          }
-          break;
+    buf[i] = byte;
+    printf("st: %d  buf: %X\n", st, buf[i]);  
 
-        case FLAG_RCV:  //TODO: define other control commands
+    switch (st) {
 
-          if (buf[i] == A_EM) {
-            st = A_RCV;
-            i++;
-          }
-          else if (buf[i] == FLAG_RCV) {
-            continue;
-          }
-          else {
-            i = 0;
-            st = START;
-          }
-          break;
+      case START:
 
-        case A_RCV:
+        if (buf[i] == DELIM) {
+          st = FLAG_RCV;
+          i++;
+        }
+        break;
 
-          if (buf[i] == SET) {
-            st = C_RCV;
-            i++;
-          }
-          else if (buf[i] == FLAG_RCV) {
-              st = FLAG_RCV;
-              i = 1;
-          }
-          else {
-              st = START;
-              i = 0;
-          }
-          break;
+      case FLAG_RCV:  //TODO: define other control commands
 
-        case C_RCV:
+        if (buf[i] == A_EM) {
+          st = A_RCV;
+          i++;
+        }
+        else if (buf[i] == FLAG_RCV) {
+          continue;
+        }
+        else {
+          i = 0;
+          st = START;
+        }
+        break;
 
-          unsigned char bcc = buf[1]^buf[2];
+      case A_RCV:
 
-          if (buf[i] == bcc) {
-              st = BCC_OK;
-              i++;
-          }
-          else if (buf[i] == FLAG_RCV) {
+        if (buf[i] == SET) {
+          st = C_RCV;
+          i++;
+        }
+        else if (buf[i] == FLAG_RCV) {
             st = FLAG_RCV;
             i = 1;
-          }
-          else {
+        }
+        else {
             st = START;
             i = 0;
-          }
-          break;
-
-        case BCC_OK:
-
-          if (buf[i] == DELIM) {
-            end = true;
-          }
-          else {
-            st = START;
-            i = 0;
-          }
-
+        }
         break;
+
+      case C_RCV:
+
+        bcc = buf[1]^buf[2];
+
+        if (buf[i] == bcc) {
+            st = BCC_OK;
+            i++;
+        }
+        else if (buf[i] == FLAG_RCV) {
+          st = FLAG_RCV;
+          i = 1;
+        }
+        else {
+          st = START;
+          i = 0;
+        }
+        break;
+
+      case BCC_OK:
+
+        if (buf[i] == DELIM) {
+          end = true;
+        }
+        else {
+          st = START;
+          i = 0;
+        }
+
+      break;
 
       }
     }
+
+    printf("%X", buf);
   
     return 0;
 }
@@ -123,12 +136,12 @@ int main(int argc, char** argv)
     struct termios oldtio,newtio;
     char buf[255];
 
-    if ( (argc < 2) || 
-  	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-      printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-      exit(1);
-    }
+    // if ( (argc < 2) || 
+  	//      ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+  	//       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+    //   printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+    //   exit(1);
+    // }
 
 
   /*
@@ -174,7 +187,8 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-    // //read message sent by writenoncanonical
+    stateMachine(fd);
+    //read message sent by writenoncanonical
     // int n = 0;
     // char msg[255];
     // while (true) {   
