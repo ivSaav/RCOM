@@ -30,11 +30,17 @@
 #define RR    0x05  //receiver ready
 #define REJ   0x01  //reject 
 
+#define C_0 0x00
+#define RR 0x85
+#define RJ 0x81
+
 #define MAX_ATTEMPTS 3
 
 volatile int STOP=FALSE;
 int attemps = 0;
 bool tryToSend = true, timeout = false;
+
+static enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP};
 
 void signalHandler(){
   printf("signal\n");
@@ -50,8 +56,6 @@ void signalHandler(){
 }
 
 int llopen(int fd) {
-  
-  enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP};
 
   enum state st = START;
   //read message sent by writenoncanonical
@@ -149,6 +153,103 @@ int llopen(int fd) {
     return 1;
 }
 
+int llwrite(int fd) {	//TODO trocar para receber dados por argumento
+							//verificar recursivamente BCC2 xor entre bytes de dados
+	
+	//sen data packages
+	unsigned char buffer = {DELIM, A_EM, C_0, A_EM^C_0, 0x21, 0x21, DELIM};
+	int n = write(fd, buffer, 6);
+	
+	unsigned char bcc = 0;
+	bool end = false;
+  while (!end) { 
+     
+    //read field sent by writenoncanonical
+    unsigned char byte;
+    int res = read(fd,&byte,1);
+    buf[i] = byte;
+    //printf("st: %d  buf: %X\n", st, buf[i]);  
+
+    switch (st) {
+
+      case START:
+
+        if (buf[i] == DELIM) {
+          st = FLAG_RCV;
+          i++;
+        }
+        break;
+
+      case FLAG_RCV:
+
+        if (buf[i] == A_EM) {
+          st = A_RCV;
+          i++;
+        }
+        else if (buf[i] == FLAG_RCV) {
+          continue;
+        }
+        else {
+          i = 0;
+          st = START;
+        }
+        break;
+
+      case A_RCV:
+
+        if (buf[i] == RR) { //received package
+          st = C_RCV;
+          i++;
+        }
+        else if (buf[i] == RJ) {
+			//TODO resend data
+		}
+        else if (buf[i] == FLAG_RCV) {
+            st = FLAG_RCV;
+            i = 1;
+        }
+        else {
+            st = START;
+            i = 0;
+        }
+        break;
+
+      case C_RCV:
+
+        bcc = buf[1]^buf[2];
+
+        if (buf[i] == bcc) {
+            st = BCC_OK;
+            i++;
+        }
+        else if (buf[i] == FLAG_RCV) {
+          st = FLAG_RCV;
+          i = 1;
+        }
+        else {
+          st = START;
+          i = 0;
+        }
+        break;
+
+      case BCC_OK:
+
+        if (buf[i] == DELIM) {
+          return 0;
+        }
+        else {
+          st = START; //resend data
+          i = 0;
+        }
+
+      break;
+
+      }
+    }
+	
+	
+	
+}
 int main(int argc, char** argv)
 {
     int fd,c, res;
@@ -156,7 +257,7 @@ int main(int argc, char** argv)
     unsigned char buf[BUF_SIZE];
     int i, sum = 0, speed = 0;
     
-    if ( (argc < 2) || 
+     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
   	       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
        printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
@@ -204,17 +305,16 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
+	//TODO: organize - put in llopen
     unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
     res = write(fd,buffer,BUF_SIZE); 
 
-
+	
     while(tryToSend){
       alarm(3);
       if(llopen(fd) == 0){
         break;
       }
-
-      
       printf("try to read again\n");
     }
 

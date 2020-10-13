@@ -192,7 +192,7 @@ int main(int argc, char** argv)
       exit(1);
     }
 
-    
+    //TODO put in llopen
     // send acknowledgement
     unsigned char buffer[5] = {DELIM, A_EM, UA,  A_EM^UA, DELIM};
     res = write(fd,buffer,BUF_SIZE); 
