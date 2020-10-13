@@ -42,7 +42,6 @@ int llopen(int fd) {
 
   unsigned char bcc = 0;
   while (!end) { 
-    printf("here\n");
      
     //read field sent by writenoncanonical
     unsigned char byte;
@@ -193,7 +192,7 @@ int main(int argc, char** argv)
       exit(1);
     }
 
-    sleep(15);
+    
     // send acknowledgement
     unsigned char buffer[5] = {DELIM, A_EM, UA,  A_EM^UA, DELIM};
     res = write(fd,buffer,BUF_SIZE); 
