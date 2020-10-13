@@ -49,7 +49,7 @@ void signalHandler(){
   }
 }
 
-int receiveAck(int fd) {
+int llopen(int fd) {
   
   enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP};
 
@@ -156,12 +156,12 @@ int main(int argc, char** argv)
     unsigned char buf[BUF_SIZE];
     int i, sum = 0, speed = 0;
     
-    // if ( (argc < 2) || 
-  	//      ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	//       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-    //   printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-    //   exit(1);
-    // }
+    if ( (argc < 2) || 
+  	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+  	       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+       printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+       exit(1);
+     }
     (void) signal(SIGALRM, signalHandler);
 
   /*
@@ -210,7 +210,7 @@ int main(int argc, char** argv)
 
     while(tryToSend){
       alarm(3);
-      if(receiveAck(fd) == 0){
+      if(llopen(fd) == 0){
         break;
       }
 

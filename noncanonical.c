@@ -27,7 +27,7 @@
 #define RR    0x05  //receiver ready
 #define REJ   0x01  //reject 
 
-int stateMachine(int fd) {
+int llopen(int fd) {
   
   enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP};
 
@@ -137,12 +137,12 @@ int main(int argc, char** argv)
     struct termios oldtio,newtio;
     char buf[255];
 
-    // if ( (argc < 2) || 
-  	//      ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	//       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-    //   printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-    //   exit(1);
-    // }
+     if ( (argc < 2) || 
+  	      ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+  	       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+       printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+      exit(1);
+     }
 
 
   /*
@@ -188,7 +188,7 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-    if (stateMachine(fd)) {
+    if (llopen(fd)) {
       perror("stateMachine");
       exit(1);
     }
