@@ -27,8 +27,6 @@
 #define SET   0x03  //set command
 #define DISC  0x09  //disconect command
 #define UA    0x07  //unnumbered acknowledgment
-#define RR    0x05  //receiver ready
-#define REJ   0x01  //reject 
 
 #define C_0   0x00  //S=0
 #define C_1   0x40  //S=1
@@ -41,7 +39,7 @@ volatile int STOP=FALSE;
 int attemps = 0;
 bool tryToSend = true, timeout = false;
 
-static enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP};
+enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK};
 
 void signalHandler(){
   printf("signal\n");
@@ -65,7 +63,6 @@ int llopen(int fd) {
   unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
   res = write(fd,buffer,BUF_SIZE); 
 
-  
   enum state st = START;
   //get acknowledgement
   int n = 0;
@@ -163,7 +160,7 @@ int llopen(int fd) {
 
 unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
 
-  if (buffer[i] == NULL) {
+  if (buffer[i] == '\0') {  //reached last element
     return first;
   }
   
@@ -171,103 +168,122 @@ unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
   return calcBcc2(buffer, ++i, first);
 }
 
-int llwrite(int fd) {	//TODO trocar para receber dados por argumento
-							//verificar recursivamente BCC2 xor entre bytes de dados
-	
-  unsigned char dataBuffer[3] = {0x21, 0x12, NULL};
-  unsigned char bcc2 = calcBcc2(dataBuffer, 0, dataBuffer[0]);
-  printf("%X xor", bcc2);
-	// //sen data packages
-	// unsigned char buffer = {DELIM, A_EM, C_0, A_EM^C_0, dataBuffer, DELIM};
-	// int n = write(fd, buffer, 6);
-	
-	// unsigned char bcc = 0;
-	// bool end = false;
-  // while (!end) { 
+int llwrite(int fd, unsigned char ns) {	
+
+  bool rcvRR = false;
+  int numTries = 0;
+  ns = C_0;//TODO remove
+
+	do {
+    unsigned char dataBuffer[3] = {0x21, 0x12, '\0'}; //TODO trocar para receber dados por argumento
+    int dataSize = 2;
+    unsigned char bcc2 = calcBcc2(dataBuffer, 0, dataBuffer[0]);
+
+    //send data packages
+    unsigned char buffer = {DELIM, A_EM, ns, A_EM^C_0, dataBuffer, bcc2, DELIM};
+    int nbytes = dataSize + 6;
+    int n = write(fd, buffer, nbytes);
     
-  // //receive acknowledgement sent by noncanonical
-  // unsigned char buf[6];
-  // enum state st = START;
-  // unsigned char byte;
-  // int res = read(fd,&byte,1);
-  // buf[i] = byte;
-  // //printf("st: %d  buf: %X\n", st, buf[i]);  
+    unsigned char bcc = 0;
+    bool end = false;
+    while (!end) { 
+      
+      //receive acknowledgement sent by noncanonical
+      unsigned char buf[6];
+      enum state st = START;
+      unsigned char byte;
+      int res = read(fd,&byte,1);
+      buf[i] = byte;
+      
+      //printf("st: %d  buf: %X\n", st, buf[i]);  
 
-  // switch (st) {
+      switch (st) {
 
-  //   case START:
+        case START:
 
-  //     if (buf[i] == DELIM) {
-  //       st = FLAG_RCV;
-  //       i++;
-  //     }
-  //     break;
+          if (buf[i] == DELIM) {
+            st = FLAG_RCV;
+            i++;
+          }
+          break;
 
-  //   case FLAG_RCV:
+        case FLAG_RCV:
 
-  //     if (buf[i] == A_EM) {
-  //       st = A_RCV;
-  //       i++;
-  //     }
-  //     else if (buf[i] == FLAG_RCV) {
-  //       continue;
-  //     }
-  //     else {
-  //       i = 0;
-  //       st = START;
-  //     }
-  //     break;
+          if (buf[i] == A_EM) {
+            st = A_RCV;
+            i++;
+          }
+          else if (buf[i] == FLAG_RCV) {
+            continue;
+          }
+          else {
+            i = 0;
+            st = START;
+          }
+          break;
 
-  //   case A_RCV:
+        case A_RCV:
 
-  //     if (buf[i] == RR) { //received package
-  //       st = C_RCV;
-  //       i++;
-  //     }
-  //     else if (buf[i] == RJ) {
-  //   //TODO resend data
-  //     }
-  //     else if (buf[i] == FLAG_RCV) {
-  //         st = FLAG_RCV;
-  //         i = 1;
-  //     }
-  //     else {
-  //         st = START;
-  //         i = 0;
-  //     }
-  //     break;
+          if (buf[i] == RR) { //received package
+            st = C_RCV;
+            i++;
+          }
+          else if (buf[i] == RJ) {//TODO resend data
+              numTries++;
+              rcvRR = false;
 
-  //   case C_RCV:
+              if (numTries >= 3)
+                perror("llwrite exced maximum number of tries.");
+              
+          }
+          else if (buf[i] == FLAG_RCV) {
+              st = FLAG_RCV;
+              i = 1;
+          }
+          else {
+              st = START;
+              i = 0;
+          }
+          break;
 
-  //     bcc = buf[1]^buf[2];
+        case C_RCV:
 
-  //     if (buf[i] == bcc) {
-  //         st = BCC_OK;
-  //         i++;
-  //     }
-  //     else if (buf[i] == FLAG_RCV) {
-  //       st = FLAG_RCV;
-  //       i = 1;
-  //     }
-  //     else {
-  //       st = START;
-  //       i = 0;
-  //     }
-  //     break;
+          bcc = buf[1]^buf[2];
 
-  //   case BCC_OK:
+          if (buf[i] == bcc) {
+              st = BCC_OK;
+              i++;
+          }
+          else if (buf[i] == FLAG_RCV) {
+            st = FLAG_RCV;
+            i = 1;
+          }
+          else {
+            st = START;
+            numtries++;
+            i = 0;
+          }
+          break;
 
-  //     if (buf[i] == DELIM) {
-  //       return 0;
-  //     }
-  //     else {
-  //       st = START; //resend data
-  //       i = 0;
-  //     }
+        case BCC_OK:
 
-  //   break;
+          if (buf[i] == DELIM) {
+            return 0;
+          }
+          else {
+            st = START; //resend data
+            numTries++;
+            i = 0;
+          }
+          break;
+        default:
+          break;
 
-  // }
+      }
+    
+    }
+  while (!rcvRR && (numTries < 3)); 
+
   return 0;
 }
 	
@@ -280,12 +296,12 @@ int main(int argc, char** argv)
     unsigned char buf[BUF_SIZE];
     int i, sum = 0, speed = 0;
     
-     if ( (argc < 2) || 
-  	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-       printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-       exit(1);
-     }
+    //  if ( (argc < 2) || 
+  	//      ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+  	//        (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+    //    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+    //    exit(1);
+    //  }
     (void) signal(SIGALRM, signalHandler);
 
   /*
@@ -335,6 +351,8 @@ int main(int argc, char** argv)
       }
       printf("try to read again\n");
     }
+
+    llwrite(fd);
 
     printf("exited\n");
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
