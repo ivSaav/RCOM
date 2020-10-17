@@ -31,23 +31,23 @@
 #define C_0   0x00  //S=0
 #define C_1   0x40  //S=1
 #define RR    0x85
-#define RJ    0x81
+#define RJ    0x81   //TODO alternate between 0 and 1 according to ns
+
 
 #define MAX_ATTEMPTS 3
 
-volatile int STOP=FALSE;
-int attemps = 0;
-bool tryToSend = true, timeout = false;
+static int attemps = 0;
+static bool tryToSend = true, timeout = false;
 
 enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK};
 
 void signalHandler(){
-  printf("signal\n");
+  printf("Timeout.\n");
   timeout = true;
 
   if(attemps == MAX_ATTEMPTS){
     tryToSend = false;
-    printf("max try\n");
+    printf("Exceded max tries.\n");
   }
   else{
     attemps++;
@@ -107,6 +107,11 @@ int receiveAck(int fd, unsigned char expectedControl){
           st = C_RCV;
           i++;
         }
+        else if (buf[i] == RJ) {
+          st = START;
+          printf("Rejected data package.\n");
+          return 1;
+        }
         else if (buf[i] == FLAG_RCV) {
             st = FLAG_RCV;
             i = 1;
@@ -158,7 +163,6 @@ int llopen(int fd) {
 
   while(tryToSend){
     
-  
     int res = 0;
     //send set frame
     unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
@@ -189,126 +193,51 @@ unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
   return calcBcc2(buffer, ++i, first);
 }
 
-int llwrite(int fd, unsigned char ns) {	
+int llwrite(int fd /*, unsigned char *data, int size*/) {	
+  
+  bool rcvRR = false;
+  int numTries = 0;
+  static unsigned char ns = C_0;
 
-  // bool rcvRR = false;
-  // int numTries = 0;
-  // ns = C_0;//TODO remove
+  bool sentData = false;
 
-	// do {
-  //   unsigned char dataBuffer[3] = {0x21, 0x12, '\0'}; //TODO trocar para receber dados por argumento
-  //   int dataSize = 2;
-  //   unsigned char bcc2 = calcBcc2(dataBuffer, 0, dataBuffer[0]);
+	do {
+    unsigned char dataBuffer[3] = {0x21, 0x12, '\0'}; //TODO trocar para receber dados por argumento
+    int size = 2;
+    unsigned char bcc2 = calcBcc2(dataBuffer, 0, dataBuffer[0]);
 
-  //   //send data packages
-  //   unsigned char buffer = {DELIM, A_EM, ns, A_EM^C_0, dataBuffer, bcc2, DELIM};
-  //   int nbytes = dataSize + 6;
-  //   int n = write(fd, buffer, nbytes);
-    
-  //   unsigned char bcc = 0;
-  //   bool end = false;
-  //   int i = 0;
-  //   while (!end) { 
-      
-  //     //receive acknowledgement sent by noncanonical
-  //     unsigned char buf[6];
-  //     enum state st = START;
-  //     unsigned char byte;
-  //     int res = read(fd,&byte,1);
-  //     buf[i] = byte;
-      
-  //     //printf("st: %d  buf: %X\n", st, buf[i]);  
+    //intialize data frame
+    unsigned char buffer[size + 6]; /*= {DELIM, A_EM, ns, A_EM^C_0, dataBuffer, bcc2, DELIM};*/
+    buffer[0] = DELIM;
+    buffer[1] = A_EM;
+    buffer[2] = ns;
+    buffer[3] = A_EM^C_0; //TODO change according to ns
 
-  //     switch (st) {
+    int buffPos = 3;
+    for (int i = 0; i < size; i++) {  //concatenating data buffer
+        buffer[i+buffPos] = dataBuffer[i];
+    }
+    buffPos += size;
+    buffer[buffPos] = bcc2;
+    buffer[++buffPos] = DELIM;
 
-  //       case START:
+    //send data
+    int nbytes = size + 6;
+    int n = write(fd, buffer, nbytes);
 
-  //         if (buf[i] == DELIM) {
-  //           st = FLAG_RCV;
-  //           i++;
-  //         }
-  //         break;
+    alarm(3);
 
-  //       case FLAG_RCV:
+    if (!receiveAck(fd, RR)) {
+        tryToSend = false;
+        return 0; //success
+    }
+    else {
+      numTries++;
+    }
+  
+  } while (!sentData && (numTries < 3));
 
-  //         if (buf[i] == A_EM) {
-  //           st = A_RCV;
-  //           i++;
-  //         }
-  //         else if (buf[i] == FLAG_RCV) {
-  //           continue;
-  //         }
-  //         else {
-  //           i = 0;
-  //           st = START;
-  //         }
-  //         break;
-
-  //       case A_RCV:
-
-  //         if (buf[i] == RR) { //received package
-  //           st = C_RCV;
-  //           i++;
-  //         }
-  //         else if (buf[i] == RJ) {//TODO resend data
-  //             numTries++;
-  //             rcvRR = false;
-
-  //             if (numTries >= 3)
-  //               perror("llwrite exced maximum number of tries.");
-              
-  //         }
-  //         else if (buf[i] == FLAG_RCV) {
-  //             st = FLAG_RCV;
-  //             i = 1;
-  //         }
-  //         else {
-  //             st = START;
-  //             i = 0;
-  //         }
-  //         break;
-
-  //       case C_RCV:
-
-  //         bcc = buf[1]^buf[2];
-
-  //         if (buf[i] == bcc) {
-  //             st = BCC_OK;
-  //             i++;
-  //         }
-  //         else if (buf[i] == FLAG_RCV) {
-  //           st = FLAG_RCV;
-  //           i = 1;
-  //         }
-  //         else {
-  //           st = START;
-  //           numtries++;
-  //           i = 0;
-  //         }
-  //         break;
-
-  //       case BCC_OK:
-
-  //         if (buf[i] == DELIM) {
-  //           return 0;
-  //         }
-  //         else {
-  //           st = START; //resend data
-  //           numTries++;
-  //           i = 0;
-  //         }
-  //         break;
-  //       default:
-  //         break;
-
-  //     }
-    
-  //   }
-  // }
-  // while (!rcvRR && (numTries < 3)); 
-
-  // return 0;
-  // }
+   return 1;
 }
 	
 	
@@ -334,7 +263,7 @@ int main(int argc, char** argv)
   */
 
     fd = open(argv[1], O_RDWR | O_NOCTTY);
-    if (fd <0) {perror(argv[1]); exit(-1); }
+    if (fd <0) { perror(argv[1]); exit(-1); }
 
     if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
       perror("tcgetattr");
@@ -349,7 +278,7 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
+    newtio.c_cc[VTIME]    = 3;   /* inter-character timer unused */
     newtio.c_cc[VMIN]     = 0;   /* blocking read until 5 chars received */
 
 
