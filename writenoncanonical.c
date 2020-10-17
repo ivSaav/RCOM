@@ -54,16 +54,10 @@ void signalHandler(){
   }
 }
 
+int receiveAck(int fd, unsigned char expectedControl){
 
+  static enum state st = START;
 
-int llopen(int fd) {
-
-  int res = 0;
-  //send set frame
-  unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
-  res = write(fd,buffer,BUF_SIZE); 
-
-  enum state st = START;
   //get acknowledgement
   int n = 0;
   unsigned char buf[6];
@@ -108,7 +102,7 @@ int llopen(int fd) {
 
       case A_RCV:
 
-        if (buf[i] == UA) {
+        if (buf[i] == expectedControl) {
           st = C_RCV;
           i++;
         }
@@ -152,10 +146,34 @@ int llopen(int fd) {
 
       break;
 
-      }
     }
+  }
+
+  return 1;
+
+}
+
+int llopen(int fd) {
+
+  while(tryToSend){
+      alarm(3);
   
-    return 1;
+    int res = 0;
+    //send set frame
+    unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
+    res = write(fd,buffer,BUF_SIZE); 
+
+
+    if (!receiveAck(fd, UA)) {
+        tryToSend = false;
+        return 0; //success
+    }
+    else {
+      printf("Received wrong acknowledgement.\n");
+    }
+  }
+    
+    return 1; //failure
 }
 
 unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
@@ -170,121 +188,124 @@ unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
 
 int llwrite(int fd, unsigned char ns) {	
 
-  bool rcvRR = false;
-  int numTries = 0;
-  ns = C_0;//TODO remove
+  // bool rcvRR = false;
+  // int numTries = 0;
+  // ns = C_0;//TODO remove
 
-	do {
-    unsigned char dataBuffer[3] = {0x21, 0x12, '\0'}; //TODO trocar para receber dados por argumento
-    int dataSize = 2;
-    unsigned char bcc2 = calcBcc2(dataBuffer, 0, dataBuffer[0]);
+	// do {
+  //   unsigned char dataBuffer[3] = {0x21, 0x12, '\0'}; //TODO trocar para receber dados por argumento
+  //   int dataSize = 2;
+  //   unsigned char bcc2 = calcBcc2(dataBuffer, 0, dataBuffer[0]);
 
-    //send data packages
-    unsigned char buffer = {DELIM, A_EM, ns, A_EM^C_0, dataBuffer, bcc2, DELIM};
-    int nbytes = dataSize + 6;
-    int n = write(fd, buffer, nbytes);
+  //   //send data packages
+  //   unsigned char buffer = {DELIM, A_EM, ns, A_EM^C_0, dataBuffer, bcc2, DELIM};
+  //   int nbytes = dataSize + 6;
+  //   int n = write(fd, buffer, nbytes);
     
-    unsigned char bcc = 0;
-    bool end = false;
-    while (!end) { 
+  //   unsigned char bcc = 0;
+  //   bool end = false;
+  //   int i = 0;
+  //   while (!end) { 
       
-      //receive acknowledgement sent by noncanonical
-      unsigned char buf[6];
-      enum state st = START;
-      unsigned char byte;
-      int res = read(fd,&byte,1);
-      buf[i] = byte;
+  //     //receive acknowledgement sent by noncanonical
+  //     unsigned char buf[6];
+  //     enum state st = START;
+  //     unsigned char byte;
+  //     int res = read(fd,&byte,1);
+  //     buf[i] = byte;
       
-      //printf("st: %d  buf: %X\n", st, buf[i]);  
+  //     //printf("st: %d  buf: %X\n", st, buf[i]);  
 
-      switch (st) {
+  //     switch (st) {
 
-        case START:
+  //       case START:
 
-          if (buf[i] == DELIM) {
-            st = FLAG_RCV;
-            i++;
-          }
-          break;
+  //         if (buf[i] == DELIM) {
+  //           st = FLAG_RCV;
+  //           i++;
+  //         }
+  //         break;
 
-        case FLAG_RCV:
+  //       case FLAG_RCV:
 
-          if (buf[i] == A_EM) {
-            st = A_RCV;
-            i++;
-          }
-          else if (buf[i] == FLAG_RCV) {
-            continue;
-          }
-          else {
-            i = 0;
-            st = START;
-          }
-          break;
+  //         if (buf[i] == A_EM) {
+  //           st = A_RCV;
+  //           i++;
+  //         }
+  //         else if (buf[i] == FLAG_RCV) {
+  //           continue;
+  //         }
+  //         else {
+  //           i = 0;
+  //           st = START;
+  //         }
+  //         break;
 
-        case A_RCV:
+  //       case A_RCV:
 
-          if (buf[i] == RR) { //received package
-            st = C_RCV;
-            i++;
-          }
-          else if (buf[i] == RJ) {//TODO resend data
-              numTries++;
-              rcvRR = false;
+  //         if (buf[i] == RR) { //received package
+  //           st = C_RCV;
+  //           i++;
+  //         }
+  //         else if (buf[i] == RJ) {//TODO resend data
+  //             numTries++;
+  //             rcvRR = false;
 
-              if (numTries >= 3)
-                perror("llwrite exced maximum number of tries.");
+  //             if (numTries >= 3)
+  //               perror("llwrite exced maximum number of tries.");
               
-          }
-          else if (buf[i] == FLAG_RCV) {
-              st = FLAG_RCV;
-              i = 1;
-          }
-          else {
-              st = START;
-              i = 0;
-          }
-          break;
+  //         }
+  //         else if (buf[i] == FLAG_RCV) {
+  //             st = FLAG_RCV;
+  //             i = 1;
+  //         }
+  //         else {
+  //             st = START;
+  //             i = 0;
+  //         }
+  //         break;
 
-        case C_RCV:
+  //       case C_RCV:
 
-          bcc = buf[1]^buf[2];
+  //         bcc = buf[1]^buf[2];
 
-          if (buf[i] == bcc) {
-              st = BCC_OK;
-              i++;
-          }
-          else if (buf[i] == FLAG_RCV) {
-            st = FLAG_RCV;
-            i = 1;
-          }
-          else {
-            st = START;
-            numtries++;
-            i = 0;
-          }
-          break;
+  //         if (buf[i] == bcc) {
+  //             st = BCC_OK;
+  //             i++;
+  //         }
+  //         else if (buf[i] == FLAG_RCV) {
+  //           st = FLAG_RCV;
+  //           i = 1;
+  //         }
+  //         else {
+  //           st = START;
+  //           numtries++;
+  //           i = 0;
+  //         }
+  //         break;
 
-        case BCC_OK:
+  //       case BCC_OK:
 
-          if (buf[i] == DELIM) {
-            return 0;
-          }
-          else {
-            st = START; //resend data
-            numTries++;
-            i = 0;
-          }
-          break;
-        default:
-          break;
+  //         if (buf[i] == DELIM) {
+  //           return 0;
+  //         }
+  //         else {
+  //           st = START; //resend data
+  //           numTries++;
+  //           i = 0;
+  //         }
+  //         break;
+  //       default:
+  //         break;
 
-      }
+  //     }
     
-    }
-  while (!rcvRR && (numTries < 3)); 
+  //   }
+  // }
+  // while (!rcvRR && (numTries < 3)); 
 
-  return 0;
+  // return 0;
+  // }
 }
 	
 	
@@ -344,17 +365,12 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 	
-    while(tryToSend){
-      alarm(3);
-      if(llopen(fd) == 0){
-        break;
-      }
-      printf("try to read again\n");
+    
+    if (llopen(fd)) {
+      perror("Couldn't open connection to noncanonical.\n");
+      exit(-1);
     }
-
-    llwrite(fd);
-
-    printf("exited\n");
+    
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");
       exit(-1);
