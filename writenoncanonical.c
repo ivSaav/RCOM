@@ -74,7 +74,8 @@ int receiveAck(int fd, unsigned char expectedControl){
     int res = read(fd,&byte,1);
     buf[i] = byte;
 
-    //printf("st: %d  buf: %X\n", st, buf[i]);  
+    //printf("st: %d  buf: %X\n", st, buf[i]); 
+
     switch (st) {
 
       case START:
@@ -156,21 +157,23 @@ int receiveAck(int fd, unsigned char expectedControl){
 int llopen(int fd) {
 
   while(tryToSend){
-      alarm(3);
+    
   
     int res = 0;
     //send set frame
     unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
     res = write(fd,buffer,BUF_SIZE); 
 
+    alarm(3);
 
     if (!receiveAck(fd, UA)) {
         tryToSend = false;
         return 0; //success
     }
     else {
-      printf("Received wrong acknowledgement.\n");
+      printf("Invalid acknowledgement.\n");
     }
+
   }
     
     return 1; //failure
@@ -330,7 +333,7 @@ int main(int argc, char** argv)
     because we don't want to get killed if linenoise sends CTRL-C.
   */
 
-    fd = open(argv[1], O_RDWR | O_NOCTTY | O_NONBLOCK);
+    fd = open(argv[1], O_RDWR | O_NOCTTY);
     if (fd <0) {perror(argv[1]); exit(-1); }
 
     if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
@@ -347,7 +350,7 @@ int main(int argc, char** argv)
     newtio.c_lflag = 0;
 
     newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 5;   /* blocking read until 5 chars received */
+    newtio.c_cc[VMIN]     = 0;   /* blocking read until 5 chars received */
 
 
 
@@ -363,6 +366,7 @@ int main(int argc, char** argv)
       exit(-1);
     }
 
+  
     printf("New termios structure set\n");
 	
     
@@ -370,6 +374,8 @@ int main(int argc, char** argv)
       perror("Couldn't open connection to noncanonical.\n");
       exit(-1);
     }
+
+    printf("Connection established.\n");
     
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");
