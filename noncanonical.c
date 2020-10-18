@@ -27,6 +27,17 @@
 #define RR    0x05  //receiver ready
 #define REJ   0x01  //reject 
 
+
+unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
+
+  if (buffer[i] == '\0') {  //reached last element
+    return first;
+  }
+  
+  first = first^buffer[i+1];
+  return calcBcc2(buffer, ++i, first);
+}
+
 int llopen(int fd) {
   
   enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP};
