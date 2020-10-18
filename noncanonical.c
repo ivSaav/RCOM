@@ -32,6 +32,13 @@
 
 volatile int STOP=FALSE;
 
+int sendAcknowledgement(fd){
+  unsigned char buffer[5] = {DELIM, A_EM, UA,  A_EM^UA, DELIM};
+
+  int res = write(fd,buffer,BUF_SIZE);
+
+  return res;
+}
 
 unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first, int last_data_indice) {
 
@@ -151,10 +158,9 @@ int llread(int fd, char * buffer){
 
   unsigned char byte;
   int i = 0, res, data_received = 0;
-  bool end = false;
-
   unsigned char bcc = 0;
-  while (!end) { 
+
+  while (true) { 
      
     //read field sent by writenoncanonical
     res = read(fd,&byte,1);
@@ -224,35 +230,36 @@ int llread(int fd, char * buffer){
 
         if (buffer[i] == DELIM) {
           data_received--;
+
           if(buffer[i-1] == calcBcc2(buffer, 4, buffer[4]), 4 + data_received){
-            end =true;
+            printf("%s", buf);
+
+            return i;
           }
           else{
             st = START;
+
             i = 0;
             data_received = 0;
           }
         }
         else {
-          data_received++, i++;
+          data_received++;
+          i++;
 
           buffer = (char*) realloc(buffer, (6 + data_received)*sizeof(char));
-
         }
 
       break;
-
       }
     }
-
-    printf("%s", buf);
   
-    return 0;
+    return -1;
 }
 
 int main(int argc, char** argv)
 {
-    int fd,c, res;
+    int fd,c;
     struct termios oldtio,newtio;
     char buf[255];
 
@@ -310,9 +317,17 @@ int main(int argc, char** argv)
       exit(1);
     }
 
-    // Send Acknowledgement
-    unsigned char buffer[5] = {DELIM, A_EM, UA,  A_EM^UA, DELIM};
-    res = write(fd,buffer,BUF_SIZE); 
+    if(sendAcknowledgement(fd) == -1){
+      perror("Error sending acknowledgement!");
+      exit(3);
+    }
+
+    char * buffer = (char*) malloc(buffer, 6 * sizeof(char));
+
+    if(llread(fd, buffer) == -1){
+      perror("Error reading data!");
+      exit(2);
+    }
 
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
