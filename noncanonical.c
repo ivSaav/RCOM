@@ -24,13 +24,18 @@
 #define SET   0x03  //set command
 #define DISC  0x09  //disconect command
 #define UA    0x07  //unnumbered acknowledgment
-#define RR    0x05  //receiver ready
-#define REJ   0x01  //reject 
+
+#define C_0   0x00  //S=0
+#define C_1   0x40  //S=1
+#define RR    0x85
+#define RJ    0x81
+
+volatile int STOP=FALSE;
 
 
-unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
+unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first, int last_data_indice) {
 
-  if (buffer[i] == '\0') {  //reached last element
+  if (i > indice) {  //reached last element
     return first;
   }
   
@@ -139,7 +144,111 @@ int llopen(int fd) {
     return 0;
 }
 
-volatile int STOP=FALSE;
+int llread(int fd, char * buffer){
+  enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DATA, BCC2_OK};
+
+  enum state st = START;
+
+  unsigned char byte;
+  int i = 0, res, data_received = 0;
+  bool end = false;
+
+  unsigned char bcc = 0;
+  while (!end) { 
+     
+    //read field sent by writenoncanonical
+    res = read(fd,&byte,1);
+    buffer[i] = byte;
+    printf("st: %d  buf: %X\n", st, buffer[i]);  
+
+    switch (st) {
+
+      case START:
+
+        if (buffer[i] == DELIM) {
+          st = FLAG_RCV;
+          i++;
+        }
+        break;
+
+      case FLAG_RCV:  //TODO: define other control commands
+
+        if (buffer[i] == A_EM) {
+          st = A_RCV;
+          i++;
+        }
+        else if (buffer[i] == FLAG_RCV) {
+          continue;
+        }
+        else {
+          i = 0;
+          st = START;
+        }
+        break;
+
+      case A_RCV:
+
+        if (buffer[i] == C_0 || buffer[i] == C_1) {
+          st = C_RCV;
+          i++;
+        }
+        else if (buffer[i] == FLAG_RCV) {
+            st = FLAG_RCV;
+            i = 1;
+        }
+        else {
+            st = START;
+            i = 0;
+        }
+        break;
+
+      case C_RCV:
+
+        bcc = buffer[1]^buffer[2];
+
+        if (buffer[i] == bcc) {
+            st = BCC_OK;
+            i++;
+        }
+        else if (buffer[i] == FLAG_RCV) {
+          st = FLAG_RCV;
+          i = 1;
+        }
+        else {
+          st = START;
+          i = 0;
+        }
+        break;
+
+      case BCC_OK:
+
+        if (buffer[i] == DELIM) {
+          data_received--;
+          if(buffer[i-1] == calcBcc2(buffer, 4, buffer[4]), 4 + data_received){
+            end =true;
+          }
+          else{
+            st = START;
+            i = 0;
+            data_received = 0;
+          }
+        }
+        else {
+          data_received++, i++;
+
+          buffer = (char*) realloc(buffer, (6 + data_received)*sizeof(char));
+
+        }
+
+      break;
+
+      }
+    }
+
+    printf("%s", buf);
+  
+    return 0;
+}
 
 int main(int argc, char** argv)
 {
@@ -201,11 +310,9 @@ int main(int argc, char** argv)
       exit(1);
     }
 
-    //TODO put in llopen
-    // send acknowledgement
+    // Send Acknowledgement
     unsigned char buffer[5] = {DELIM, A_EM, UA,  A_EM^UA, DELIM};
     res = write(fd,buffer,BUF_SIZE); 
-
 
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
