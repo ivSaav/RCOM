@@ -28,7 +28,7 @@
 #define DISC  0x09  //disconect command
 #define UA    0x07  //unnumbered acknowledgment
 
-#define C_0   0x00  //S=0
+#define C   0x00  //S=0
 #define C_1   0x40  //S=1
 #define RR    0x85
 #define RJ    0x81   //TODO alternate between 0 and 1 according to ns
@@ -58,6 +58,8 @@ int receiveAck(int fd, unsigned char expectedControl){
 
   static enum state st = START;
 
+  printf("expected %X\n", expectedControl);
+
   //get acknowledgement
   int n = 0;
   unsigned char buf[6];
@@ -74,7 +76,7 @@ int receiveAck(int fd, unsigned char expectedControl){
     int res = read(fd,&byte,1);
     buf[i] = byte;
 
-    //printf("st: %d  buf: %X\n", st, buf[i]); 
+    printf("st: %d  buf: %X\n", st, buf[i]); 
 
     switch (st) {
 
@@ -143,6 +145,7 @@ int receiveAck(int fd, unsigned char expectedControl){
       case BCC_OK:
 
         if (buf[i] == DELIM) {
+          st = START; //for further use
           return 0;
         }
         else {
@@ -197,7 +200,7 @@ int llwrite(int fd /*, unsigned char *data, int size*/) {
   
   bool rcvRR = false;
   int numTries = 0;
-  static unsigned char ns = C_0;
+  static bool ns_set = false; //S starts at 0
 
   bool sentData = false;
 
@@ -206,17 +209,18 @@ int llwrite(int fd /*, unsigned char *data, int size*/) {
     int size = 2;
     unsigned char bcc2 = calcBcc2(dataBuffer, 0, dataBuffer[0]);
 
-    //intialize data frame
-    unsigned char buffer[size + 6]; /*= {DELIM, A_EM, ns, A_EM^C_0, dataBuffer, bcc2, DELIM};*/
+    //intialize data frame header
+    unsigned char buffer[size + 6]; 
     buffer[0] = DELIM;
     buffer[1] = A_EM;
-    buffer[2] = ns;
-    buffer[3] = A_EM^C_0; //TODO change according to ns
+    buffer[2] = ns_set ? 0x40 : 0x00; //Control flag: S=1 --> 0x40 ; S=0 --> 0x00
+    buffer[3] = buffer[1]^buffer[2];
 
-    int buffPos = 3;
+    int buffPos = 4;
     for (int i = 0; i < size; i++) {  //concatenating data buffer
         buffer[i+buffPos] = dataBuffer[i];
     }
+
     buffPos += size;
     buffer[buffPos] = bcc2;
     buffer[++buffPos] = DELIM;
@@ -227,7 +231,8 @@ int llwrite(int fd /*, unsigned char *data, int size*/) {
 
     alarm(3);
 
-    if (!receiveAck(fd, RR)) {
+    if (!receiveAck(fd, ns_set ? (0x0F & RR) : RR)) { //if S=0 expect to receive S=1
+        ns_set = !ns_set;
         tryToSend = false;
         return 0; //success
     }
@@ -249,12 +254,12 @@ int main(int argc, char** argv)
     unsigned char buf[BUF_SIZE];
     int i, sum = 0, speed = 0;
     
-    //  if ( (argc < 2) || 
-  	//      ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	//        (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-    //    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-    //    exit(1);
-    //  }
+     if ( (argc < 2) || 
+  	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+  	       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+       printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+       exit(1);
+     }
     (void) signal(SIGALRM, signalHandler);
 
   /*
@@ -294,7 +299,6 @@ int main(int argc, char** argv)
       perror("tcsetattr");
       exit(-1);
     }
-
   
     printf("New termios structure set\n");
 	
@@ -305,6 +309,12 @@ int main(int argc, char** argv)
     }
 
     printf("Connection established.\n");
+
+    
+    if (llwrite(fd) < 0) {
+      perror("Couldn't send data.\n");
+      exit(-1);
+    }
     
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");

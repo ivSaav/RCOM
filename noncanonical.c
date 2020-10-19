@@ -27,27 +27,27 @@
 
 #define C_0   0x00  //S=0
 #define C_1   0x40  //S=1
-#define RR    0x85
+#define RR    0x85  //S=1
 #define RJ    0x81
 
 volatile int STOP=FALSE;
 
-int sendAcknowledgement(fd){
-  unsigned char buffer[5] = {DELIM, A_EM, UA,  A_EM^UA, DELIM};
+int sendAcknowledgement(int fd, unsigned char expectedControl){
+  unsigned char buffer[5] = {DELIM, A_EM, expectedControl,  A_EM^expectedControl, DELIM};
 
   int res = write(fd,buffer,BUF_SIZE);
 
   return res;
 }
 
-unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first, int last_data_indice) {
+unsigned char calcBcc2(unsigned char *buffer, int i, unsigned char first, int last_data_index) {
 
-  if (i > indice) {  //reached last element
+  if (i >= last_data_index-1) {  //reached last element
     return first;
   }
   
   first = first^buffer[i+1];
-  return calcBcc2(buffer, ++i, first);
+  return calcBcc2(buffer, ++i, first, last_data_index);
 }
 
 int llopen(int fd) {
@@ -145,6 +145,12 @@ int llopen(int fd) {
 
       }
     }
+    
+    if(sendAcknowledgement(fd, UA) == -1){
+      perror("Error sending acknowledgement!");
+      exit(3);
+    }
+
 
     printf("%s", buf);
   
@@ -160,6 +166,8 @@ int llread(int fd, char * buffer){
   int i = 0, res, data_received = 0;
   unsigned char bcc = 0;
 
+  static bool nr_set = 1;
+
   while (true) { 
      
     //read field sent by writenoncanonical
@@ -169,7 +177,7 @@ int llread(int fd, char * buffer){
 
     switch (st) {
 
-      case START:
+      case START: //validate header
 
         if (buffer[i] == DELIM) {
           st = FLAG_RCV;
@@ -177,7 +185,7 @@ int llread(int fd, char * buffer){
         }
         break;
 
-      case FLAG_RCV:  //TODO: define other control commands
+      case FLAG_RCV:  
 
         if (buffer[i] == A_EM) {
           st = A_RCV;
@@ -195,6 +203,7 @@ int llread(int fd, char * buffer){
       case A_RCV:
 
         if (buffer[i] == C_0 || buffer[i] == C_1) {
+          nr_set = (buffer[i] == C_1); //alternate between 1 and 0
           st = C_RCV;
           i++;
         }
@@ -226,14 +235,20 @@ int llread(int fd, char * buffer){
         }
         break;
 
-      case BCC_OK:
-
-        if (buffer[i] == DELIM) {
+      case BCC_OK:  //start reading data 
+      
+        if (buffer[i] == DELIM) { //reached end of frame
           data_received--;
 
-          if(buffer[i-1] == calcBcc2(buffer, 4, buffer[4]), 4 + data_received){
-            printf("%s", buf);
+          unsigned char bcc2 = calcBcc2(buffer, 4, buffer[4], 4 + data_received);
 
+          if(buffer[i-1] == bcc2){
+            
+            if (sendAcknowledgement(fd, nr_set ? (0x0F & RR) : RR) <= 0) { //if S=1 send S=0
+              perror("Couldn't send acknowledgement.\n");
+              exit(-1);
+            }
+            st = START; //for further use
             return i;
           }
           else{
@@ -243,7 +258,7 @@ int llread(int fd, char * buffer){
             data_received = 0;
           }
         }
-        else {
+        else {              //add byte to buffer
           data_received++;
           i++;
 
@@ -263,12 +278,12 @@ int main(int argc, char** argv)
     struct termios oldtio,newtio;
     char buf[255];
 
-    //  if ( (argc < 2) || 
-  	//       ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	//        (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-    //    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-    //   exit(1);
-    //  }
+     if ( (argc < 2) || 
+  	      ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+  	       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+       printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+      exit(1);
+     }
 
 
   /*
@@ -317,12 +332,7 @@ int main(int argc, char** argv)
       exit(1);
     }
 
-    if(sendAcknowledgement(fd) == -1){
-      perror("Error sending acknowledgement!");
-      exit(3);
-    }
-
-    char * buffer = (char*) malloc(buffer, 6 * sizeof(char));
+    char * buffer = (char*) malloc(6 * sizeof(char));
 
     if(llread(fd, buffer) == -1){
       perror("Error reading data!");
