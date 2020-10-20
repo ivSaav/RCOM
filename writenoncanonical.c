@@ -33,11 +33,15 @@
 #define RR    0x85
 #define RJ    0x81   //TODO alternate between 0 and 1 according to ns
 
+#define ESC_OCT 0x7d
+#define ESC_MASK 0x20
+
 
 #define MAX_ATTEMPTS 3
 
 static int attemps = 0;
 static bool tryToSend = true, timeout = false;
+static unsigned char * stuffedBuffer[512];
 
 enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK};
 
@@ -194,6 +198,29 @@ unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
   
   first = first^buffer[i+1];
   return calcBcc2(buffer, ++i, first);
+}
+
+
+int stuffBytes(unsigned char *buffer, int size) {
+
+  int j = 0;
+  for (int i = 0; i < size; i++) {  //TODO mudar de variável global
+
+    if (buffer[i] == DELIM) {
+      stuffedBuffer[j] = ESC_OCT;
+      stuffedBuffer[++j] = buffer[i]^ESC_MASK;
+    }
+    else if (buffer[i] == ESC_OCT) {
+      stuffedBuffer[j] = ESC_OCT;
+      stuffedBuffer[++j] = buffer[i]^ESC_MASK;
+    }
+    else {
+      stuffedBuffer[j] = buffer[i];
+    }
+    j++;
+  }
+
+  return 0;
 }
 
 int llwrite(int fd /*, unsigned char *data, int size*/) {	
