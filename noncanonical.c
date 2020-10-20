@@ -242,18 +242,25 @@ int llread(int fd, char * buffer){
 
           unsigned char bcc2 = calcBcc2(buffer, 4, buffer[4], 4 + data_received);
 
-          if(buffer[i-1] == bcc2){
+          if(buffer[i-1] == bcc2){    //accepted frame
+
             
             if (sendAcknowledgement(fd, nr_set ? (0x0F & RR) : RR) <= 0) { //if S=1 send S=0
               perror("Couldn't send acknowledgement.\n");
               exit(-1);
             }
+  
             st = START; //for further use
             return i;
           }
-          else{
-            st = START;
+          else{   //rejected frame
+      
+            if (sendAcknowledgement(fd, nr_set ? (0x0F & RJ) : RJ) <= 0) {
+                perror("Couldn't send acknowledgement.\n");
+                exit(-1);
+              }
 
+            st = START;
             i = 0;
             data_received = 0;
           }
