@@ -285,12 +285,12 @@ int main(int argc, char** argv)
     struct termios oldtio,newtio;
     char buf[255];
 
-     if ( (argc < 2) || 
-  	      ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-       printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-      exit(1);
-     }
+    //  if ( (argc < 2) || 
+  	//       ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+  	//        (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+    //    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+    //   exit(1);
+    //  }
 
 
   /*
@@ -306,6 +306,7 @@ int main(int argc, char** argv)
       perror("tcgetattr");
       exit(-1);
     }
+
 
     bzero(&newtio, sizeof(newtio));
     newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;

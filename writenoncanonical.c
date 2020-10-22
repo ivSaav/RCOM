@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <string.h>
 #include <stdbool.h>
 
 #define BAUDRATE B38400
@@ -41,7 +42,7 @@
 
 static int attemps = 0;
 static bool tryToSend = true, timeout = false;
-static unsigned char * stuffedBuffer[512];
+static unsigned char stuffedBuffer[512];
 
 enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK};
 
@@ -281,12 +282,12 @@ int main(int argc, char** argv)
     unsigned char buf[BUF_SIZE];
     int i, sum = 0, speed = 0;
     
-     if ( (argc < 2) || 
-  	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	       (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-       printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-       exit(1);
-     }
+    //  if ( (argc < 2) || 
+  	//      ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+  	//        (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+    //    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+    //    exit(1);
+    //  }
     (void) signal(SIGALRM, signalHandler);
 
   /*
