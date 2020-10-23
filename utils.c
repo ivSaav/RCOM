@@ -19,7 +19,7 @@ void signalHandler(){
 
 //send supervision/numbered frame
 int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedControl){
-  unsigned char buffer[5] = {DELIM, flag, expectedControl,  A_EM^expectedControl, DELIM};
+  unsigned char buffer[5] = {DELIM, flag, expectedControl,  flag^expectedControl, DELIM};
 
   int res = write(fd,buffer,BUF_SIZE);
 
@@ -31,7 +31,7 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
 
   static enum state st = START;
 
-  printf("expected %X\n", expectedControl);
+  //printf("expected %X %X\n", expectedFlag, expectedControl);
 
   //get acknowledgement
   int n = 0;
@@ -139,14 +139,14 @@ int llopen(int fd, unsigned char flag) {
 
     switch (flag) {
         case A_EM:
-            if (setupConnection(fd)) {
+            if (EmtSetupConnection(fd)) {
                 perror("Couldn't setup connection.\n");
                 exit(1);
             }
             break;
         case A_RC:
-            if (establishConnection(fd)){
-                perro("Couldn't setup connection.\n");
+            if (RcvSetupConnection(fd)){
+                perror("Couldn't setup connection.\n");
                 exit(2);
             }
             break;
@@ -159,7 +159,7 @@ int llopen(int fd, unsigned char flag) {
 }
 
 //setup connection from writer
-int setupConnection(int fd) {
+int EmtSetupConnection(int fd) {
 
      while(tryToSend){
     
@@ -184,7 +184,7 @@ int setupConnection(int fd) {
 }
 
 //setup connection from receiver
-int establishConnection(int fd) {
+int RcvSetupConnection(int fd) {
     
     int n = 0;
     unsigned char buf[6];
@@ -197,7 +197,7 @@ int establishConnection(int fd) {
         exit(1);
     }
         
-    if(sendAcknowledgement(fd, A_EM, UA) == -1){
+    if(sendAcknowledgement(fd, A_RC, UA) == -1){
         perror("Error sending acknowledgement!");
         exit(2);
     }
@@ -285,8 +285,8 @@ int llwrite(int fd /*, unsigned char *data, int size*/) {
   bool sentData = false;
 
 	do {
-    unsigned char dataBuffer[3] = {0x21, 0x12, '\0'}; //TODO trocar para receber dados por argumento
-    int size = 2;
+    unsigned char dataBuffer[4] = {0x7d, 0x21, 0x12, '\0'}; //TODO trocar para receber dados por argumento
+    int size = 3;
     unsigned char bcc2 = calcBcc2(dataBuffer, 0, dataBuffer[0]);
 
     //intialize data frame header
@@ -311,7 +311,8 @@ int llwrite(int fd /*, unsigned char *data, int size*/) {
 
     alarm(3);
 
-    if (!receiveAck(fd, ns_set ? (0x0F & RR) : RR)) { //if S=0 expect to receive S=1
+    //receive acknowledgement from receiver
+    if (!receiveFrame(fd, A_EM, ns_set ? (0x0F & RR) : RR)) { //if S=0 expect to receive S=1
         ns_set = !ns_set;
         tryToSend = false;
         return 0; //success
@@ -325,7 +326,7 @@ int llwrite(int fd /*, unsigned char *data, int size*/) {
    return 1;
 }
 
-int llread(int fd, char * buffer){
+int llread(int fd, unsigned char * buffer){
   enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DATA, BCC2_OK};
 
   enum state st = START;
@@ -408,7 +409,7 @@ int llread(int fd, char * buffer){
         if (buffer[i] == DELIM) { //reached end of frame
           data_received--;
 
-          unsigned char bcc2 = calcBcc2(buffer, 4, buffer[4], 4 + data_received);   //TODO 
+          unsigned char bcc2 = RcvCalcBcc2(buffer, 4, buffer[4], 4 + data_received);   //TODO 
 
           if(buffer[i-1] == bcc2){    //accepted frame
 

@@ -40,7 +40,7 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
+    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */ 
     newtio.c_cc[VMIN]     = 5;   /* blocking read until 5 chars received */
 
 
@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-    if (llopen(fd, A_EM)) {
+    if (llopen(fd, A_RC)) {
       perror("stateMachine");
       exit(1);
     }

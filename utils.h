@@ -36,13 +36,18 @@
 
 enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK};
 
-int sendFrame(int fd, unsigned char expectedControl);
+int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedControl);
 
-int receiveAck(int fd, unsigned char expectedControl);
+int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedControl);
 
 int llopen(int fd, unsigned char flag);
+int llread(int fd, unsigned char *buffer);
+
+int EmtSetupConnection(int fd);
+int RcvSetupConnection(int fd) ;
 
 unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first);
+unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int last_data_index);
 
 int stuffBytes(unsigned char *buffer, int size);
 

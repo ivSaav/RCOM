@@ -59,11 +59,11 @@ int main(int argc, char** argv)
       perror("tcsetattr");
       exit(-1);
     }
-  
+   
     printf("New termios structure set\n");
 	
     
-    if (llopen(fd)) {
+    if (llopen(fd, A_EM)) {
       perror("Couldn't open connection to noncanonical.\n");
       exit(-1);
     }
@@ -75,6 +75,8 @@ int main(int argc, char** argv)
       perror("Couldn't send data.\n");
       exit(-1);
     }
+
+    printf("Successfully sent package.\n");
     
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");
