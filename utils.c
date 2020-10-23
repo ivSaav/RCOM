@@ -2,7 +2,7 @@
 
 static int attempts = 0;
 static bool tryToSend = true, timeout = false;
-static unsigned char stuffedBuffer[512];
+static unsigned char stuffed[512];
 
 void signalHandler(){
   printf("Timeout.\n");
@@ -20,6 +20,8 @@ void signalHandler(){
 //send supervision/numbered frame
 int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedControl){
   unsigned char buffer[5] = {DELIM, flag, expectedControl,  flag^expectedControl, DELIM};
+
+  //printf("expected %X %X\n", flag, expectedControl);
 
   int res = write(fd,buffer,BUF_SIZE);
 
@@ -67,7 +69,7 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
           st = A_RCV;
           i++;
         }
-        else if (buf[i] == FLAG_RCV) {
+        else if (buf[i] == DELIM) {
           continue;
         }
         else {
@@ -84,10 +86,9 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
         }
         else if (buf[i] == RJ) {
           st = START;
-          printf("Rejected data package.\n");
           return 1;
         }
-        else if (buf[i] == FLAG_RCV) {
+        else if (buf[i] == DELIM) {
             st = FLAG_RCV;
             i = 1;
         }
@@ -105,7 +106,7 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
             st = BCC_OK;
             i++;
         }
-        else if (buf[i] == FLAG_RCV) {
+        else if (buf[i] == DELIM) {
           st = FLAG_RCV;
           i = 1;
         }
@@ -255,24 +256,28 @@ unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
 }
 
 int stuffBytes(unsigned char *buffer, int size) {
-
+  
   int j = 0;
-  for (int i = 0; i < size; i++) {  //TODO mudar de variável global
+  for (int i = 0; i < size; i++) { 
 
     if (buffer[i] == DELIM) {
-      stuffedBuffer[j] = ESC_OCT;
-      stuffedBuffer[++j] = buffer[i]^ESC_MASK;
+      stuffed[j] = ESC_OCT;
+      stuffed[++j] = buffer[i]^ESC_MASK;
     }
     else if (buffer[i] == ESC_OCT) {
-      stuffedBuffer[j] = ESC_OCT;
-      stuffedBuffer[++j] = buffer[i]^ESC_MASK;
+      stuffed[j] = ESC_OCT;
+      stuffed[++j] = buffer[i]^ESC_MASK;
     }
     else {
-      stuffedBuffer[j] = buffer[i];
+      stuffed[j] = buffer[i];
     }
     j++;
   }
 
+  return j-1;
+}
+
+int DestuffBytes(unsigned char *buffer, int size) {
   return 0;
 }
 
@@ -285,28 +290,30 @@ int llwrite(int fd /*, unsigned char *data, int size*/) {
   bool sentData = false;
 
 	do {
-    unsigned char dataBuffer[4] = {0x7d, 0x21, 0x12, '\0'}; //TODO trocar para receber dados por argumento
-    int size = 3;
+    unsigned char dataBuffer[6] = {0x7d, 0x21,0x7e, 0x12, 0x11, '\0'}; //TODO trocar para receber dados por argumento
+    int size = 6;
     unsigned char bcc2 = calcBcc2(dataBuffer, 0, dataBuffer[0]);
 
+    int ndata = stuffBytes(dataBuffer, size);
+
     //intialize data frame header
-    unsigned char buffer[size + 6]; 
+    unsigned char buffer[ndata + 6]; 
     buffer[0] = DELIM;
     buffer[1] = A_EM;
     buffer[2] = ns_set ? 0x40 : 0x00; //Control flag: S=1 --> 0x40 ; S=0 --> 0x00
     buffer[3] = buffer[1]^buffer[2];
 
     int buffPos = 4;
-    for (int i = 0; i < size; i++) {  //concatenating data buffer
-        buffer[i+buffPos] = dataBuffer[i];
+    for (int i = 0; i < ndata; i++) {  //concatenating stuffed data buffer
+        buffer[i+buffPos] = stuffed[i];
     }
 
-    buffPos += size;
+    buffPos += ndata;
     buffer[buffPos] = bcc2;
     buffer[++buffPos] = DELIM;
 
     //send data
-    int nbytes = size + 6;
+    int nbytes = ndata + 6;
     int n = write(fd, buffer, nbytes);
 
     alarm(3);
@@ -360,7 +367,7 @@ int llread(int fd, unsigned char * buffer){
           st = A_RCV;
           i++;
         }
-        else if (buffer[i] == FLAG_RCV) {
+        else if (buffer[i] == DELIM) {
           continue;
         }
         else {
@@ -376,7 +383,7 @@ int llread(int fd, unsigned char * buffer){
           st = C_RCV;
           i++;
         }
-        else if (buffer[i] == FLAG_RCV) {
+        else if (buffer[i] == DELIM) {
             st = FLAG_RCV;
             i = 1;
         }
@@ -394,7 +401,7 @@ int llread(int fd, unsigned char * buffer){
             st = BCC_OK;
             i++;
         }
-        else if (buffer[i] == FLAG_RCV) {
+        else if (buffer[i] == DELIM) {
           st = FLAG_RCV;
           i = 1;
         }
@@ -411,8 +418,8 @@ int llread(int fd, unsigned char * buffer){
 
           unsigned char bcc2 = RcvCalcBcc2(buffer, 4, buffer[4], 4 + data_received);   //TODO 
 
-          if(buffer[i-1] == bcc2){    //accepted frame
 
+          if(true/*buffer[i-1] == bcc2*/){    //accepted frame  TODO destuffbytes
             
             if (sendAcknowledgement(fd, A_EM,  nr_set ? (0x0F & RR) : RR) <= 0) { //if S=1 send S=0
               perror("Couldn't send acknowledgement.\n");
@@ -428,6 +435,8 @@ int llread(int fd, unsigned char * buffer){
                 perror("Couldn't send acknowledgement.\n");
                 exit(-1);
               }
+
+            printf("Rejected data packet.\n");
 
             st = START;
             i = 0;
