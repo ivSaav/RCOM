@@ -1,5 +1,6 @@
-#include "utils.h"
+#include "linkLayer.h"
 
+//TODO organize into struct (slides)
 static int attempts = 0;
 static bool tryToSend = true, timeout = false;
 static unsigned char stuffed[512];

@@ -1,9 +1,8 @@
-all:	writenoncanical noncanonical
+all:	app
 
-writenoncanical:	writenoncanonical.c utils.c
-		gcc writenoncanonical.c utils.c -o writenoncanonical
+app:	app.c linkLayer.c
+		gcc app.c linkLayer.c -o app
 
-noncanonical:	noncanonical.c utils.c
-		gcc noncanonical.c utils.c -o noncanonical
+
 
 	
