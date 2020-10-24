@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-    if (llopen(fd, A_RC)) {
+    if (llopen(fd, RCV_STAT)) {
       perror("stateMachine");
       exit(1);
     }
@@ -71,6 +71,10 @@ int main(int argc, char** argv)
       exit(2);
     }
 
+    if (llclose(fd, RCV_STAT)) {
+      perror("Couldn't close connection\n");
+      exit(1);
+    }
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
     return 0;

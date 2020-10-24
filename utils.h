@@ -16,6 +16,9 @@
 
 #define BUF_SIZE 5
 
+#define EMT_STAT 0  //emissor status
+#define RCV_STAT 1  //receiver status
+
 #define DELIM 0x7E  //delimiter
 #define A_RC  0x01  //commands sent by 'Receptor' and answers sent by 'Emissor'
 #define A_EM  0x03  //commands sent by 'Emissor' and answers sent by the 'Receptor'
@@ -40,17 +43,22 @@ int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedContro
 
 int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedControl);
 
-int llopen(int fd, unsigned char flag);
+int llopen(int fd, int status);
 int llread(int fd, unsigned char *buffer);
+int llwrite(int fd, unsigned char *data, int size);
+int llclose(int fd, int status);
 
 int EmtSetupConnection(int fd);
 int RcvSetupConnection(int fd) ;
+
+int EmtCloseConnection(int fd);
+int RcvCloseConnection(int fd);
 
 unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first);
 unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int last_data_index);
 
 int stuffBytes(unsigned char *buffer, int size);
 
-int llwrite(int fd /*, unsigned char *data, int size*/);
+
 
 void signalHandler();

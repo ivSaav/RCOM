@@ -136,16 +136,16 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
 
 }
 
-int llopen(int fd, unsigned char flag) {
+int llopen(int fd, int status) {
 
-    switch (flag) {
-        case A_EM:
+    switch (status) {
+        case EMT_STAT: //emissor
             if (EmtSetupConnection(fd)) {
                 perror("Couldn't setup connection.\n");
                 exit(1);
             }
             break;
-        case A_RC:
+        case RCV_STAT:  //receiver
             if (RcvSetupConnection(fd)){
                 perror("Couldn't setup connection.\n");
                 exit(2);
@@ -206,11 +206,23 @@ int RcvSetupConnection(int fd) {
     return 0;
 }
 
-int llclose(int fd) {
+int llclose(int fd, int status) {
 
   tryToSend = true;
   attempts = 0;
-  while(tryToSend){
+
+  if (status == EMT_STAT) {
+      return EmtCloseConnection(fd);
+  }
+  else {
+    return RcvCloseConnection(fd);
+  }
+  
+}
+
+int EmtCloseConnection(int fd) {
+
+  while(tryToSend && (attempts < 3)){
       
       int res = 0;
       //send set frame
@@ -219,19 +231,61 @@ int llclose(int fd) {
 
       alarm(3);
 
-      if (!receiveFrame(fd, A_RC, DISC)) { //receive DISC from receiver
-          tryToSend = false;
-          return 0; //success
-      }
-      else {
+      if (receiveFrame(fd, A_RC, DISC)) { //receive DISC from receiver
         printf("Invalid acknowledgement.\n");
       }
 
-      if (sendAcknowledgement(fd, A_EM,  UA) <= 0) { 
+      if (sendAcknowledgement(fd, A_RC,  UA) <= 0) { 
         printf("Couldn't send acknowledgment.\n");
       }
+      else {
+        printf("Connection closed\n");
+        return 0;
+      }
 
+  }
+
+  return 1;
+
+}
+
+int RcvCloseConnection(int fd) {
+
+  timeout = false;
+  attempts = 0;
+
+  while(tryToSend){
+
+    alarm(3);
+
+    if (receiveFrame(fd, A_EM, DISC)) { //receive DISC from emissor
+        printf("Invalid frame (llclose).\n");
     }
+
+    int res = 0;
+    //send DISC frame
+    unsigned char buffer[5] = {DELIM, A_RC, DISC,  A_RC^DISC, DELIM};
+    res = write(fd,buffer,BUF_SIZE); 
+    if (res <= 0) {
+      perror("write error\n");
+      exit(1);
+    }
+
+    alarm(3);
+
+    if (!receiveFrame(fd, A_RC, UA)) { //receive UA from emissor
+        printf("Connection closed\n");
+        return 0; //success
+    }
+    else {
+      printf("Invalid frame (llclose).\n");
+    }
+  
+  
+  }
+
+  return 1;
+
 }
 
 
@@ -281,7 +335,7 @@ int DestuffBytes(unsigned char *buffer, int size) {
   return 0;
 }
 
-int llwrite(int fd /*, unsigned char *data, int size*/) {	
+int llwrite(int fd, unsigned char *data, int size) {	
   
   bool rcvRR = false;
   int numTries = 0;
@@ -290,11 +344,10 @@ int llwrite(int fd /*, unsigned char *data, int size*/) {
   bool sentData = false;
 
 	do {
-    unsigned char dataBuffer[6] = {0x7d, 0x21,0x7e, 0x12, 0x11, '\0'}; //TODO trocar para receber dados por argumento
     int size = 6;
-    unsigned char bcc2 = calcBcc2(dataBuffer, 0, dataBuffer[0]);
+    unsigned char bcc2 = calcBcc2(data, 0, data[0]);
 
-    int ndata = stuffBytes(dataBuffer, size);
+    int ndata = stuffBytes(data, size);
 
     //intialize data frame header
     unsigned char buffer[ndata + 6]; 

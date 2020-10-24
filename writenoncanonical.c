@@ -63,20 +63,27 @@ int main(int argc, char** argv)
     printf("New termios structure set\n");
 	
     
-    if (llopen(fd, A_EM)) {
+    if (llopen(fd, EMT_STAT)) {
       perror("Couldn't open connection to noncanonical.\n");
       exit(-1);
     }
 
     printf("Connection established.\n");
 
+    int size = 6;
+    unsigned char dataBuffer[6] = {0x7d, 0x21,0x7e, 0x12, 0x11, '\0'}; 
     
-    if (llwrite(fd) < 0) {
+    if (llwrite(fd, dataBuffer, size) < 0) {
       perror("Couldn't send data.\n");
       exit(-1);
     }
 
     printf("Successfully sent package.\n");
+
+    if (llclose(fd, EMT_STAT)) {
+      perror("Couldn't close conection\n");
+      exit(-1);
+    }
     
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");
