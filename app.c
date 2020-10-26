@@ -8,10 +8,9 @@ int sendControlPacket(unsigned char controlFlag) {
 
   int pos = 0;
   control[pos++] = controlFlag;
-  control[pos++] = app.fileSize;
 
-  //SIZE
-  control[pos++] = TLV_SIZE;
+  //LENGTH
+  control[pos++] = TLV_LENGTH;
 
   unsigned char sizeValue[10];
   sprintf(sizeValue, "%X", app.fileSize); //convert to hexadecimal
@@ -52,6 +51,60 @@ int sendControlPacket(unsigned char controlFlag) {
 
   return 0;
   
+}
+
+int sendDataPackets() {
+
+    struct stat st;
+    
+    if(fstat(app.fd, &st)) 
+    { 
+      perror("fstat error\n");
+      close(app.fd); 
+      exit(-1);
+    } 
+
+    app.fileSize = st.st_size;
+    app.numBlocks = st.st_blocks;
+
+    int sentBlocks = 0;
+    unsigned char buffer[BUFFER_MAX_SIZE];
+    unsigned char dataBuffer[BLOCK_SIZE];
+    int nRead = 0, nWrite = 0;
+    while(sentBlocks < app.numBlocks) {
+
+        int index = 0;
+
+        buffer[index++] = C_DATA;
+        buffer[index++] = sentBlocks % 255; //sequence number
+
+
+        nRead = read(app.fd, dataBuffer, BLOCK_SIZE); //read block from file
+        if (nRead < 0) {
+          perror("read error (sendDataPackets).\n");
+          exit(-1);
+        }
+
+        buffer[index++] = nRead / 255;  //L1
+        buffer[index++] = nRead % 255;  //L2
+      
+        //concatenate data to buffer
+        for (int i = 0; i < nRead; i++) 
+          buffer[index + i] = dataBuffer[i];
+
+        nWrite = llwrite(app.port, dataBuffer, nRead);  //send block to receiver
+        if (nWrite < nRead) {
+          perror("Didn't send full data package\n");
+          exit(-1);
+        }
+
+        printf("nseq: %d  nWrite: %d\n", sentBlocks, nWrite);
+        sentBlocks++;
+
+    }
+
+    return 0;
+
 }
 
 
@@ -169,7 +222,7 @@ int main(int argc, char **argv) {
           exit(1);
         }
 
-        char * buffer = (char*) malloc(DATA_BUFFER_MAX_SIZE * sizeof(char));
+        char * buffer = (char*) malloc(BUFFER_MAX_SIZE * sizeof(char));
 
         if(llread(app.port, buffer) == -1){
           perror("Error reading data!");

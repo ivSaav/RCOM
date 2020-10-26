@@ -374,7 +374,7 @@ int llwrite(int fd, unsigned char *data, int size) {
     if (!receiveFrame(fd, A_EM, ns_set ? (0x0F & RR) : RR)) { //if S=0 expect to receive S=1
         ns_set = !ns_set;
         tryToSend = false;
-        return 0; //success
+        return n; //success
     }
     else {
       numTries++;
