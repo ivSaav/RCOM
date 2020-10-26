@@ -204,6 +204,7 @@ int RcvSetupConnection(int fd) {
         exit(2);
     }
 
+    printf("Connection established.\n");
     return 0;
 }
 
@@ -332,9 +333,6 @@ int stuffBytes(unsigned char *buffer, int size) {
   return j-1;
 }
 
-int DestuffBytes(unsigned char *buffer, int size) {
-  return 0;
-}
 
 int llwrite(int fd, unsigned char *data, int size) {	
   
@@ -388,7 +386,6 @@ int llwrite(int fd, unsigned char *data, int size) {
 }
 
 int llread(int fd, unsigned char * buffer){
-  enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DATA, BCC2_OK};
 
   enum state st = START;
 
@@ -473,7 +470,7 @@ int llread(int fd, unsigned char * buffer){
           unsigned char bcc2 = RcvCalcBcc2(buffer, 4, buffer[4], 4 + data_received);   //TODO 
 
 
-          if(true/*buffer[i-1] == bcc2*/){    //accepted frame  TODO destuffbytes
+          if(buffer[i-1] == bcc2){    //accepted frame  TODO destuffbytes
             
             if (sendAcknowledgement(fd, A_EM,  nr_set ? (0x0F & RR) : RR) <= 0) { //if S=1 send S=0
               perror("Couldn't send acknowledgement.\n");
@@ -498,13 +495,34 @@ int llread(int fd, unsigned char * buffer){
           }
         }
         else {              //add byte to buffer
-          data_received++;
-          i++;
+          if(buffer[i] == 0x7d){
+            st = DESTUFFING;
+          }
+          else{
+            data_received++;
+            i++;
+          }
 
-          buffer = (char*) realloc(buffer, (6 + data_received)*sizeof(char));
+        }
+        break;
+
+      case DESTUFFING:
+
+        if(buffer[i] == 0x5e){
+          buffer[i] = 0x7e;
+        }
+        else if(buffer[i] == 0x5d){
+          buffer[i] = 0x7d;
         }
 
+        data_received++;
+        i++;
+
+        st = BCC_OK;
+    
+      
       break;
+      
       }
     }
   

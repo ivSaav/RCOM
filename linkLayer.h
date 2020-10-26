@@ -48,7 +48,7 @@ typedef struct {
     char frame[MAX_SIZE];/*Trama*/
 } linkLayer;
 
-enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK};
+enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DESTUFFING};
 
 int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedControl);
 

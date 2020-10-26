@@ -1,42 +1,107 @@
 #include "app.h"
 
+static App app;
 
-App app;
+int sendControlPacket(unsigned char controlFlag) {
+
+  unsigned char control[255];
+
+  int pos = 0;
+  control[pos++] = controlFlag;
+  control[pos++] = app.fileSize;
+
+  //SIZE
+  control[pos++] = TLV_SIZE;
+
+  unsigned char sizeValue[10];
+  sprintf(sizeValue, "%X", app.fileSize); //convert to hexadecimal
+  int length = strlen(sizeValue);
+  control[pos++] = length % 2; //length in oct
+  
+  unsigned char c;
+  for (int i = length-1; i >= 0; i--){  //fetching one octect at a time
+      
+      int j = i-1;
+      if (j >= 0) {
+          unsigned char front, back;
+          front = sizeValue[j] & 0x0f; //extract front of oct
+          back = sizeValue[i] & 0x0f; //extract back of oct
+
+          c = (front << 4) | back;  //construct oct
+          i--;
+      }
+      else {
+          c = sizeValue[i] & 0x0f;
+      }
+
+      control[pos++] = c; //concatenate value oct
+
+  }
+
+  //FILENAME
+  control[pos++] = TLV_FILENAME;
+  int nameSize = strlen(app.filename);
+  for (int i = 0; i < nameSize; i++)
+    control[pos++] = app.filename[i];
+
+  //send command
+  if (llwrite(app.port, control, pos-1)){
+    perror("Couldn't send control frame\n");
+    exit(-1);
+  }
+
+  return 0;
+  
+}
+
 
 int main(int argc, char **argv) {
 
-    if (argc < 4 || (atoi(argv[3]) != EMT_STAT && atoi(argv[3]) != RCV_STAT) ) {
-        printf("Usage:\tfilename serialport status: filename /dev/ttyS0 0\n");
-        exit(-1);
-    } 
-    // else if ((strcmp("/dev/ttyS0", argv[2])!=0) && (strcmp("/dev/ttyS1", argv[2])!=0)){
-    //       printf("Usage:\tfilename status: filename 0|1\n");    
+    // if ((strcmp("/dev/ttyS0", argv[1])!=0) && (strcmp("/dev/ttyS1", argv[1])!=0)){
+    //       printf("Usage:\t serialport filename: app /dev/ttyS0 filename\n");    
     //       exit(-1);    
     // }
 
-    int fd = open(argv[1], O_RDONLY);
-    if (fd < 0) {
-        perror(argv[1]); 
+    if (argc == 2) {  //Receiver
+      app.status = RCV_STAT;
+    }
+    else if (argc == 3) { //Transmitter
+
+      //open image
+      int fd = open(argv[2], O_RDONLY);
+      if (fd < 0) { perror(argv[2]); exit(-1); }
+
+      app.fd = fd;
+      app.status = EMT_STAT;
+      app.filename = (char *) malloc(strlen(argv[2]));
+      app.filename = argv[2];
+
+
+    }
+    else {
+        printf("Usage (Transmitter):\tserialport filename: app /dev/ttyS0 filename\n");
+        printf("Usage (Receiver):\tserialport: app /dev/ttyS0 filename\n");
         exit(-1);
     }
 
-    app.fd = fd;
-    app.status = atoi(argv[3]);
-
-    (void) signal(SIGALRM, signalHandler);
+    //set alarm handler
+    if (signal(SIGALRM, signalHandler)) {
+      perror("Couldn't install alarm\n");
+      exit(-1);
+    }
 
     int portfd, c, res;
     struct termios oldtio,newtio;
-    
-    (void) signal(SIGALRM, signalHandler);
 
   /*
     Open serial port device for reading and writing and not as controlling tty
     because we don't want to get killed if linenoise sends CTRL-C.
   */
 
-    portfd = open(argv[2], O_RDWR | O_NOCTTY);
+    portfd = open(argv[1], O_RDWR | O_NOCTTY);
     if (portfd <0) { perror(argv[1]); exit(-1); }
+
+    app.port = portfd;
 
     if ( tcgetattr(portfd,&oldtio) == -1) { /* save current port settings */
       perror("tcgetattr");
@@ -63,9 +128,9 @@ int main(int argc, char **argv) {
    
     printf("New termios structure set\n");
 	
-    if (app.status == EMT_STAT) {
+    if (app.status == EMT_STAT) { //Transmitter
 
-        if (llopen(portfd, EMT_STAT)) {
+        if (llopen(app.port, EMT_STAT)) {
             perror("Couldn't open connection to noncanonical.\n");
             exit(-1);
         }
@@ -75,51 +140,51 @@ int main(int argc, char **argv) {
         int size = 6;
         unsigned char dataBuffer[6] = {0x7d, 0x21,0x7e, 0x12, 0x11, '\0'}; 
         
-        if (llwrite(portfd, dataBuffer, size) < 0) {
-        perror("Couldn't send data.\n");
-        exit(-1);
+        if (llwrite(app.port, dataBuffer, size) < 0) {
+          perror("Couldn't send data.\n");
+          exit(-1);
         }
 
-        printf("Successfully sent package.\n");
 
-        if (llclose(portfd, EMT_STAT)) {
-        perror("Couldn't close conection\n");
-        exit(-1);
+        if (llclose(app.port, EMT_STAT)) {
+          perror("Couldn't close conection\n");
+          exit(-1);
         }
         
-        if ( tcsetattr(portfd,TCSANOW,&oldtio) == -1) {
-        perror("tcsetattr");
-        exit(-1);
+        if ( tcsetattr(app.port,TCSANOW,&oldtio) == -1) {
+          perror("tcsetattr");
+          exit(-1);
         }
 
         sleep(1);
 
-        close(fd);
+        close(app.fd);
+        close(app.port);
   
     }
     else {  //RCV_STAT
 
-        newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */ 
-    newtio.c_cc[VMIN]     = 5;   /* blocking read until 5 chars received */
-
-        if (llopen(portfd, RCV_STAT)) {
-        perror("stateMachine");
-        exit(1);
+        if (llopen(app.port, RCV_STAT)) {
+          perror("stateMachine");
+          exit(1);
         }
 
-        char * buffer = (char*) malloc(6 * sizeof(char));
+        char * buffer = (char*) malloc(DATA_BUFFER_MAX_SIZE * sizeof(char));
 
-        if(llread(portfd, buffer) == -1){
-        perror("Error reading data!");
-        exit(2);
+        if(llread(app.port, buffer) == -1){
+          perror("Error reading data!");
+          exit(2);
         }
 
-        if (llclose(portfd, RCV_STAT)) {
-        perror("Couldn't close connection\n");
-        exit(1);
+        printf("///////\n");
+
+        if (llclose(app.port, RCV_STAT)) {
+          perror("Couldn't close connection\n");
+          exit(1);
         }
-        tcsetattr(portfd,TCSANOW,&oldtio);
-        close(fd);
+        tcsetattr(app.port,TCSANOW,&oldtio);
+        close(app.fd);
+        close(app.port);
 
     }
     
