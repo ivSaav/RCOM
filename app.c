@@ -2,7 +2,13 @@
 
 static App app;
 
-int sendControlPacket(unsigned char controlFlag) {
+/*TODO 
+  > receiveDataFrames
+  > receiveControlFrame
+
+*/
+
+int sendControlFrame(unsigned char controlFlag) {
 
   unsigned char control[255];
 
@@ -53,7 +59,7 @@ int sendControlPacket(unsigned char controlFlag) {
   
 }
 
-int sendDataPackets() {
+int sendDataFrames() {
 
     struct stat st;
     
@@ -64,8 +70,8 @@ int sendDataPackets() {
       exit(-1);
     } 
 
-    app.fileSize = st.st_size;
-    app.numBlocks = st.st_blocks;
+    app.fileSize = st.st_size;  //size in bytes
+    app.numBlocks = st.st_blocks; //number of 512B blocks
 
     int sentBlocks = 0;
     unsigned char buffer[BUFFER_MAX_SIZE];
@@ -106,6 +112,17 @@ int sendDataPackets() {
     return 0;
 
 }
+
+int receiveDataFrames() {
+
+    int receivedBlocks = 0;
+    while (receivedBlocks < app.numBlocks) {
+
+      int n = llread
+    }
+}
+
+
 
 
 int main(int argc, char **argv) {

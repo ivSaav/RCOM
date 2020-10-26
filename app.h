@@ -21,4 +21,6 @@ typedef struct {
     char *filename;
 } App;
 
-int sendControlPacket(unsigned char controlFlag);
+int sendControlFrame(unsigned char controlFlag);
+
+int sendDataFrames();
