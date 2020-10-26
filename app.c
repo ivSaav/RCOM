@@ -116,10 +116,42 @@ int sendDataFrames() {
 int receiveDataFrames() {
 
     int receivedBlocks = 0;
+    unsigned char buffer[BUFFER_MAX_SIZE];
+
     while (receivedBlocks < app.numBlocks) {
 
-      int n = llread
+      int nRead = llread(app.port, buffer);
+      if (nRead < 0) {
+        perror("llread error (receiveDataFrames)\n");
+        exit(-1);
+      }
+
+      int index = 0;
+      if (buffer[index++] == C_DATA) {
+        perror("Invalid frame \n");
+        exit(-1);
+      }
+
+      int nseq = buffer[index++];
+      unsigned char l2 = buffer[index++];
+      unsigned char l1 = buffer[index++];
+
+      int k = 256*l2+l1;  //number of octets
+
+      unsigned char data[k+1];
+      for (int i = 0; i < k; i++)
+        data[i] = buffer[index+i];
+
+      int nWrite = write(app.fd, data, k+1);
+      if (nWrite < k) {
+        perror("Didn't write full block (receiveDataFrame)\n");
+        exit(-1);
+      }
+
+      receivedBlocks++;
+
     }
+    return 0;
 }
 
 
