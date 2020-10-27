@@ -50,10 +50,13 @@ int sendControlFrame(unsigned char controlFlag) {
     control[pos++] = app.filename[i];
 
   //send command
-  if (llwrite(app.port, control, pos-1)){
+
+  int n = llwrite(app.port, control, pos-1);
+  if (n < 0){
     perror("Couldn't send control frame\n");
     exit(-1);
   }
+  printf("here\n");
 
   return 0;
 
@@ -160,7 +163,7 @@ int receiveControlFrame(unsigned char controlFlag){
 
   int buffer_length = llread(app.port, buffer);
 
-  if(buffer_length){
+  if(buffer_length < 0){
     perror("Couldn't read control frame\n");
     exit(-1);
   }
@@ -284,22 +287,24 @@ int main(int argc, char **argv) {
             exit(-1);
         }
 
+        printf("Connection established.\n");
+
         if(sendControlFrame(C_START)){
           perror("Couldn't send control frame\n");
           exit(-1);
         }
 
-        printf("Connection established.\n");
 
-        int size = 6;
-        unsigned char dataBuffer[6] = {0x7d, 0x21,0x7e, 0x12, 0x11, '\0'};
 
+        //int size = 6;
+        //unsigned char dataBuffer[6] = {0x7d, 0x21,0x7e, 0x12, 0x11, '\0'};
+/*
         if (llwrite(app.port, dataBuffer, size) < 0) {
           perror("Couldn't send data.\n");
           exit(-1);
         }
 
-
+*/
         if (llclose(app.port, EMT_STAT)) {
           perror("Couldn't close conection\n");
           exit(-1);

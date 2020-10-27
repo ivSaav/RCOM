@@ -46,14 +46,14 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
   timeout = false;
 
   unsigned char bcc = 0;
-  while (!(end || timeout)) { 
-     
+  while (!(end || timeout)) {
+
     //read field sent by writenoncanonical
     unsigned char byte;
     int res = read(fd,&byte,1);
     buf[i] = byte;
 
-    printf("st: %d  buf: %X\n", st, buf[i]); 
+    printf("st: %d  buf: %X\n", st, buf[i]);
 
     switch (st) {
 
@@ -157,7 +157,7 @@ int llopen(int fd, int status) {
             perror("Invalid flag.\n");
             exit(3);
     }
- 
+
     return 0;
 }
 
@@ -165,11 +165,11 @@ int llopen(int fd, int status) {
 int EmtSetupConnection(int fd) {
 
      while(tryToSend){
-    
+
         int res = 0;
         //send set frame
         unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
-        res = write(fd,buffer,BUF_SIZE); 
+        res = write(fd,buffer,BUF_SIZE);
 
         alarm(3);
 
@@ -182,13 +182,13 @@ int EmtSetupConnection(int fd) {
     }
 
   }
-    
+
     return 1; //failure
 }
 
 //setup connection from receiver
 int RcvSetupConnection(int fd) {
-    
+
     int n = 0;
     unsigned char buf[6];
 
@@ -199,7 +199,7 @@ int RcvSetupConnection(int fd) {
         perror("Received invalid frame.\n");
         exit(1);
     }
-        
+
     if(sendAcknowledgement(fd, A_RC, UA) == -1){
         perror("Error sending acknowledgement!");
         exit(2);
@@ -220,17 +220,17 @@ int llclose(int fd, int status) {
   else {
     return RcvCloseConnection(fd);
   }
-  
+
 }
 
 int EmtCloseConnection(int fd) {
 
   while(tryToSend && (attempts < 3)){
-      
+
       int res = 0;
       //send set frame
       unsigned char buffer[5] = {DELIM, A_EM, DISC,  A_EM^DISC, DELIM};
-      res = write(fd,buffer,BUF_SIZE); 
+      res = write(fd,buffer,BUF_SIZE);
 
       alarm(3);
 
@@ -238,7 +238,7 @@ int EmtCloseConnection(int fd) {
         printf("Invalid acknowledgement.\n");
       }
 
-      if (sendAcknowledgement(fd, A_RC,  UA) <= 0) { 
+      if (sendAcknowledgement(fd, A_RC,  UA) <= 0) {
         printf("Couldn't send acknowledgment.\n");
       }
       else {
@@ -268,7 +268,7 @@ int RcvCloseConnection(int fd) {
     int res = 0;
     //send DISC frame
     unsigned char buffer[5] = {DELIM, A_RC, DISC,  A_RC^DISC, DELIM};
-    res = write(fd,buffer,BUF_SIZE); 
+    res = write(fd,buffer,BUF_SIZE);
     if (res <= 0) {
       perror("write error\n");
       exit(1);
@@ -283,8 +283,8 @@ int RcvCloseConnection(int fd) {
     else {
       printf("Invalid frame (llclose).\n");
     }
-  
-  
+
+
   }
 
   return 1;
@@ -297,7 +297,7 @@ unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int
   if (i >= last_data_index-1) {  //reached last element
     return first;
   }
-  
+
   first = first^buffer[i+1];
   return RcvCalcBcc2(buffer, ++i, first, last_data_index);
 }
@@ -307,15 +307,15 @@ unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
   if (buffer[i] == '\0') {  //reached last element
     return first;
   }
-  
+
   first = first^buffer[i+1];
   return calcBcc2(buffer, ++i, first);
 }
 
 int stuffBytes(unsigned char *buffer, int size) {
-  
+
   int j = 0;
-  for (int i = 0; i < size; i++) { 
+  for (int i = 0; i < size; i++) {
 
     if (buffer[i] == DELIM) {
       stuffed[j] = ESC_OCT;
@@ -335,8 +335,8 @@ int stuffBytes(unsigned char *buffer, int size) {
 }
 
 
-int llwrite(int fd, unsigned char *data, int size) {	
-  
+int llwrite(int fd, unsigned char *data, int size) {
+
   bool rcvRR = false;
   int numTries = 0;
   static bool ns_set = false; //S starts at 0
@@ -350,7 +350,7 @@ int llwrite(int fd, unsigned char *data, int size) {
     int ndata = stuffBytes(data, size);
 
     //intialize data frame header
-    unsigned char buffer[ndata + 6]; 
+    unsigned char buffer[ndata + 6];
     buffer[0] = DELIM;
     buffer[1] = A_EM;
     buffer[2] = ns_set ? 0x40 : 0x00; //Control flag: S=1 --> 0x40 ; S=0 --> 0x00
@@ -380,7 +380,7 @@ int llwrite(int fd, unsigned char *data, int size) {
     else {
       numTries++;
     }
-  
+
   } while (!sentData && (numTries < 3));
 
    return 1;
@@ -397,12 +397,12 @@ int llread(int fd, unsigned char * buffer){
   static bool nr_set = 1;
 
   int index = 0; //index for return buffer
-  while (true) { 
-     
+  while (true) {
+
     //read field sent by writenoncanonical
     res = read(fd,&byte,1);
     frame[i] = byte;
-    printf("st: %d  buf: %X\n", st, frame[i]);  
+    //printf("st: %d  buf: %X\n", st, frame[i]);  
 
     switch (st) {
 
@@ -414,7 +414,7 @@ int llread(int fd, unsigned char * buffer){
         }
         break;
 
-      case FLAG_RCV:  
+      case FLAG_RCV:
 
         if (frame[i] == A_EM) {
           st = A_RCV;
@@ -464,26 +464,26 @@ int llread(int fd, unsigned char * buffer){
         }
         break;
 
-      case BCC_OK:  //start reading data 
-      
+      case BCC_OK:  //start reading data
+
         if (frame[i] == DELIM) { //reached end of frame
           data_received--;
 
-          unsigned char bcc2 = RcvCalcBcc2(frame, 4, frame[4], 4 + data_received);   //TODO 
+          unsigned char bcc2 = RcvCalcBcc2(frame, 4, frame[4], 4 + data_received);   //TODO
 
 
           if(frame[i-1] == bcc2){    //accepted frame  TODO destuffbytes
-            
+
             if (sendAcknowledgement(fd, A_EM,  nr_set ? (0x0F & RR) : RR) <= 0) { //if S=1 send S=0
               perror("Couldn't send acknowledgement.\n");
               exit(-1);
             }
-  
+
             st = START; //for further use
             return i;
           }
           else{   //rejected frame
-      
+
             if (sendAcknowledgement(fd, A_EM, nr_set ? (0x0F & RJ) : RJ) <= 0) {
                 perror("Couldn't send acknowledgement.\n");
                 exit(-1);
@@ -517,18 +517,18 @@ int llread(int fd, unsigned char * buffer){
         else if(frame[i] == 0x5d){
           frame[i] = 0x7d;
         }
-        
+
         buffer[i] = frame[i];
         data_received++;
         i++;
 
         st = BCC_OK;
-    
-      
+
+
       break;
-      
+
       }
     }
-  
+
     return -1;
 }
