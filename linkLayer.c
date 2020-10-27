@@ -53,7 +53,7 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
     int res = read(fd,&byte,1);
     buf[i] = byte;
 
-    printf("st: %d  buf: %X\n", st, buf[i]);
+    printf(" rvFrame st: %d  buf: %X\n", st, buf[i]);
 
     switch (st) {
 
@@ -402,7 +402,7 @@ int llread(int fd, unsigned char * buffer){
     //read field sent by writenoncanonical
     res = read(fd,&byte,1);
     frame[i] = byte;
-    //printf("st: %d  buf: %X\n", st, frame[i]);  
+    //printf("st: %d  buf: %X\n", st, frame[i]);
 
     switch (st) {
 
@@ -501,7 +501,7 @@ int llread(int fd, unsigned char * buffer){
             st = DESTUFFING;
           }
           else{
-            buffer[index++] = buffer[i];
+            buffer[index++] = frame[i];
             data_received++;
             i++;
           }
