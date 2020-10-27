@@ -53,8 +53,6 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
     int res = read(fd,&byte,1);
     buf[i] = byte;
 
-    printf(" rvFrame st: %d  buf: %X\n", st, buf[i]);
-
     switch (st) {
 
       case START:

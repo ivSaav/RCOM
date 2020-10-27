@@ -16,61 +16,54 @@ int sendControlFrame(unsigned char controlFlag) {
   control[pos++] = controlFlag;
 
   //LENGTH
-  control[pos++] = TLV_LENGTH;
+  control[pos++] = TLV_SIZE;
 
   unsigned char sizeValue[10];
-  sprintf(sizeValue, "%X", app.fileSize); //convert to hexadecimal
+  sprintf(sizeValue, "%lx", app.fileSize); //convert to hexadecimal
   int length = strlen(sizeValue);
-  control[pos++] = length % 2; //length in oct
+  length = length / 2 + !(length % 2 == 0); //length is +1 for an odd length
+  control[pos++] = length; //length in oct
 
-  unsigned char c;
-  for (int i = length-1; i >= 0; i--){  //fetching one octect at a time
+  long unsigned hexaSize = strtoul(sizeValue, NULL, 16);  //convert string to long unsigned 
 
-      int j = i-1;
-      if (j >= 0) {
-          unsigned char front, back;
-          front = sizeValue[j] & 0x0f; //extract front of oct
-          back = sizeValue[i] & 0x0f; //extract back of oct
+  //printf("size %s %lx %d\n", sizeValue, hexaSize, length);
 
-          c = (front << 4) | back;  //construct oct
-          i--;
-      }
-      else {
-          c = sizeValue[i] & 0x0f;
-      }
-
-      control[pos++] = c; //concatenate value oct
-
+  long unsigned tmp = hexaSize;
+  unsigned char sizeArray[length+1];
+  for (int i = 0; i < length; i++) {
+    unsigned char c = (unsigned char) tmp;//extract first 8 bits
+    sizeArray[length-1-i] = c;  //save in reverse order
+    tmp = tmp >> 8; //shift out the first 2 digits
   }
+
+  //concatenate size values into control
+  for (int i = 0; i < length; i++)
+    control[pos++] = sizeArray[i];
+
 
   //FILENAME
   control[pos++] = TLV_FILENAME;
   int nameSize = strlen(app.filename);
 
+  control[pos++] = (unsigned char) nameSize;
+
   for (int i = 0; i < nameSize; i++)
     control[pos++] = app.filename[i];
 
   //send command
-
-  for (int i = 0; i < pos; i++) {
-    printf("%X\n", control[i]);
-  }
-
   int n = llwrite(app.port, control, pos+1);
   if (n < 0){
     perror("Couldn't send control frame\n");
     exit(-1);
   }
 
-  printf("Wrote %d %d octets\n", n, pos);
+  printf("Wrote %d bytes\n", n-4);
 
   return 0;
 
 }
 
 int sendDataFrames() {
-
-   
 
     int sentBlocks = 0;
     unsigned char buffer[BUFFER_MAX_SIZE];
@@ -165,6 +158,10 @@ int receiveControlFrame(unsigned char controlFlag){
     exit(-1);
   }
 
+  for (int i = 0 ; i< buffer_length; i++) {
+    printf("buff %X \n", buffer[i]);
+  }
+
   int data_length; // buffer will have data starting at indice 4
 
   if(buffer[0] != controlFlag){
@@ -172,29 +169,43 @@ int receiveControlFrame(unsigned char controlFlag){
     exit(-2);
   }
 
-  for(int i = 1; i < buffer_length - 2; i++){
+  int lengthV = 0;
+  for (int i = 1; i < buffer_length; i++) {
 
-      data_length = buffer[i + 1];
-      char temporary_buffer[data_length];
 
-      for(int j = 1; j < data_length + 1; j++){
-        temporary_buffer[j] = buffer[i + 1 + j];
-      }
+    printf("i %d\n", i);
 
-      switch (buffer[i])
-      {
-      case 0:
-        app.fileSize = atoi(temporary_buffer);
-        break;
-      case 1:
-        app.filename = temporary_buffer;
-        break;
-      default:
-        break;
-      }
+    if (buffer[i] == TLV_SIZE) {
+      lengthV = (int) buffer[++i];
 
-      i += 1 + data_length;
+      //printf("length %d\n",lengthV);
 
+      i++;
+      char tmp[25] = {00};
+      int j= 0;
+      for(; j < lengthV; j++)  //concatenate size value into string
+          sprintf(tmp+(j*2), "%02x", buffer[i+j]);
+      i += j-1;
+    
+      long unsigned fileSize = strtoul(tmp, NULL, 16);
+      app.fileSize = (int) fileSize;
+    }
+    else if (buffer[i] == TLV_FILENAME) {
+        lengthV = (int) buffer[++i];
+
+        //printf("length %d\n",lengthV);
+
+        i++;
+        char tmp[50];
+        int j = 0;
+        for (; j < lengthV; j++) {
+          tmp[j] = (char) buffer[i+j];
+        }
+        i += j-1;
+
+        app.filename = tmp;
+
+    }
   }
 
   return 0;

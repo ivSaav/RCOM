@@ -6,7 +6,7 @@
 #define C_END   0x03    //control field
 #define C_DATA  0x01
 
-#define TLV_LENGTH      0x00    //control Flag for TLV field
+#define TLV_SIZE      0x00    //control Flag for TLV field
 #define TLV_FILENAME    0x01  //control Flag for TLV field
 
 #define BUFFER_MAX_SIZE   1024
