@@ -173,7 +173,7 @@ int EmtSetupConnection(int fd) {
 
         alarm(3);
 
-        if (!receiveFrame(fd, A_RC, UA)) { //receive acknowledgement from receiver
+        if (!receiveFrame(fd, A_EM, UA)) { //receive acknowledgement from receiver
             tryToSend = false;
             return 0; //success
         }
@@ -200,7 +200,7 @@ int RcvSetupConnection(int fd) {
         exit(1);
     }
 
-    if(sendAcknowledgement(fd, A_RC, UA) == -1){
+    if(sendAcknowledgement(fd, A_EM, UA) == -1){
         perror("Error sending acknowledgement!");
         exit(2);
     }
