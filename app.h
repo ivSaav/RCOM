@@ -22,5 +22,6 @@ typedef struct {
 } App;
 
 int sendControlFrame(unsigned char controlFlag);
+int receiveControlFrame(unsigned char controlFlag);
 
 int sendDataFrames();

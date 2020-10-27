@@ -154,6 +154,53 @@ int receiveDataFrames() {
     return 0;
 }
 
+int receiveControlFrame(unsigned char controlFlag){
+  
+  char * buffer = (char *) malloc(BUFFER_MAX_SIZE * sizeof(char));
+
+  int buffer_lenght = llread(app.port, buffer);
+
+  if(buffer_lenght){
+    perror("Couldn't read control frame\n");
+    exit(-1);
+  }
+
+  buffer = (char *) realloc(sizeof(buffer));
+
+  int data_lenght; // buffer will have data starting at indice 4
+
+  if(buffer[0] != controlFlag){
+    perror("Control Flag is different\n");
+    exit(-2);
+  }
+
+  for(int i = 1; i < buffer_lenght - 2; i++){
+     
+      data_lenght = buffer[i + 1]; 
+      char temporary_buffer[data_lenght];
+
+      for(int j = 1; j < data_lengh + 1; j++){
+        temporary_buffer[j] = buffer[i + 1 + j];
+      }
+
+      switch (buffer[i])
+      {
+      case 0:
+        app.fileSize = temporary_buffer;
+        break;
+      case 1:
+        app.filename = temporary_buffer;
+        break;
+      default:
+        break;
+      }
+
+      i += 1 + data_lenght;
+    
+  }
+
+  return 0;
+}
 
 
 
@@ -237,6 +284,11 @@ int main(int argc, char **argv) {
             exit(-1);
         }
 
+        if(sendControlFrame(C_START)){
+          perror("Couldn't send control frame\n");
+          exit(-1);
+        }
+
         printf("Connection established.\n");
 
         int size = 6;
@@ -269,6 +321,11 @@ int main(int argc, char **argv) {
         if (llopen(app.port, RCV_STAT)) {
           perror("stateMachine");
           exit(1);
+        }
+
+        if(receiveControlFrame(C_START)){
+          perror("Couldn't receive control frame\n");
+          exit(-1);
         }
 
         char * buffer = (char*) malloc(BUFFER_MAX_SIZE * sizeof(char));
