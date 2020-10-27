@@ -2,7 +2,7 @@
 
 static App app;
 
-/*TODO 
+/*TODO
   > receiveDataFrames
   > receiveControlFrame
 
@@ -22,10 +22,10 @@ int sendControlFrame(unsigned char controlFlag) {
   sprintf(sizeValue, "%X", app.fileSize); //convert to hexadecimal
   int length = strlen(sizeValue);
   control[pos++] = length % 2; //length in oct
-  
+
   unsigned char c;
   for (int i = length-1; i >= 0; i--){  //fetching one octect at a time
-      
+
       int j = i-1;
       if (j >= 0) {
           unsigned char front, back;
@@ -56,19 +56,19 @@ int sendControlFrame(unsigned char controlFlag) {
   }
 
   return 0;
-  
+
 }
 
 int sendDataFrames() {
 
     struct stat st;
-    
-    if(fstat(app.fd, &st)) 
-    { 
+
+    if(fstat(app.fd, &st))
+    {
       perror("fstat error\n");
-      close(app.fd); 
+      close(app.fd);
       exit(-1);
-    } 
+    }
 
     app.fileSize = st.st_size;  //size in bytes
     app.numBlocks = st.st_blocks; //number of 512B blocks
@@ -93,9 +93,9 @@ int sendDataFrames() {
 
         buffer[index++] = nRead / 255;  //L1
         buffer[index++] = nRead % 255;  //L2
-      
+
         //concatenate data to buffer
-        for (int i = 0; i < nRead; i++) 
+        for (int i = 0; i < nRead; i++)
           buffer[index + i] = dataBuffer[i];
 
         nWrite = llwrite(app.port, dataBuffer, nRead);  //send block to receiver
@@ -155,38 +155,38 @@ int receiveDataFrames() {
 }
 
 int receiveControlFrame(unsigned char controlFlag){
-  
+
   char * buffer = (char *) malloc(BUFFER_MAX_SIZE * sizeof(char));
 
-  int buffer_lenght = llread(app.port, buffer);
+  int buffer_length = llread(app.port, buffer);
 
-  if(buffer_lenght){
+  if(buffer_length){
     perror("Couldn't read control frame\n");
     exit(-1);
   }
 
-  buffer = (char *) realloc(sizeof(buffer));
+  buffer = (char *) realloc(buffer,sizeof(buffer));
 
-  int data_lenght; // buffer will have data starting at indice 4
+  int data_length; // buffer will have data starting at indice 4
 
   if(buffer[0] != controlFlag){
     perror("Control Flag is different\n");
     exit(-2);
   }
 
-  for(int i = 1; i < buffer_lenght - 2; i++){
-     
-      data_lenght = buffer[i + 1]; 
-      char temporary_buffer[data_lenght];
+  for(int i = 1; i < buffer_length - 2; i++){
 
-      for(int j = 1; j < data_lengh + 1; j++){
+      data_length = buffer[i + 1];
+      char temporary_buffer[data_length];
+
+      for(int j = 1; j < data_length + 1; j++){
         temporary_buffer[j] = buffer[i + 1 + j];
       }
 
       switch (buffer[i])
       {
       case 0:
-        app.fileSize = temporary_buffer;
+        app.fileSize = atoi(temporary_buffer);
         break;
       case 1:
         app.filename = temporary_buffer;
@@ -195,8 +195,8 @@ int receiveControlFrame(unsigned char controlFlag){
         break;
       }
 
-      i += 1 + data_lenght;
-    
+      i += 1 + data_length;
+
   }
 
   return 0;
@@ -207,8 +207,8 @@ int receiveControlFrame(unsigned char controlFlag){
 int main(int argc, char **argv) {
 
     // if ((strcmp("/dev/ttyS0", argv[1])!=0) && (strcmp("/dev/ttyS1", argv[1])!=0)){
-    //       printf("Usage:\t serialport filename: app /dev/ttyS0 filename\n");    
-    //       exit(-1);    
+    //       printf("Usage:\t serialport filename: app /dev/ttyS0 filename\n");
+    //       exit(-1);
     // }
 
     if (argc == 2) {  //Receiver
@@ -274,9 +274,9 @@ int main(int argc, char **argv) {
       perror("tcsetattr");
       exit(-1);
     }
-   
+
     printf("New termios structure set\n");
-	
+
     if (app.status == EMT_STAT) { //Transmitter
 
         if (llopen(app.port, EMT_STAT)) {
@@ -292,8 +292,8 @@ int main(int argc, char **argv) {
         printf("Connection established.\n");
 
         int size = 6;
-        unsigned char dataBuffer[6] = {0x7d, 0x21,0x7e, 0x12, 0x11, '\0'}; 
-        
+        unsigned char dataBuffer[6] = {0x7d, 0x21,0x7e, 0x12, 0x11, '\0'};
+
         if (llwrite(app.port, dataBuffer, size) < 0) {
           perror("Couldn't send data.\n");
           exit(-1);
@@ -304,7 +304,7 @@ int main(int argc, char **argv) {
           perror("Couldn't close conection\n");
           exit(-1);
         }
-        
+
         if ( tcsetattr(app.port,TCSANOW,&oldtio) == -1) {
           perror("tcsetattr");
           exit(-1);
@@ -314,7 +314,7 @@ int main(int argc, char **argv) {
 
         close(app.fd);
         close(app.port);
-  
+
     }
     else {  //RCV_STAT
 
@@ -346,6 +346,6 @@ int main(int argc, char **argv) {
         close(app.port);
 
     }
-    
+
    return 0;
 }
