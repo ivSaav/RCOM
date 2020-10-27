@@ -65,7 +65,7 @@ int RcvSetupConnection(int fd) ;
 int EmtCloseConnection(int fd);
 int RcvCloseConnection(int fd);
 
-unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first);
+unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first, int size);
 unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int last_data_index);
 
 int stuffBytes(unsigned char *buffer, int size);

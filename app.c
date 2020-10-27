@@ -46,17 +46,23 @@ int sendControlFrame(unsigned char controlFlag) {
   //FILENAME
   control[pos++] = TLV_FILENAME;
   int nameSize = strlen(app.filename);
+
   for (int i = 0; i < nameSize; i++)
     control[pos++] = app.filename[i];
 
   //send command
 
-  int n = llwrite(app.port, control, pos-1);
+  for (int i = 0; i < pos; i++) {
+    printf("%X\n", control[i]);
+  }
+
+  int n = llwrite(app.port, control, pos+1);
   if (n < 0){
     perror("Couldn't send control frame\n");
     exit(-1);
   }
-  printf("here\n");
+
+  printf("Wrote %d %d octets\n", n, pos);
 
   return 0;
 
@@ -64,17 +70,7 @@ int sendControlFrame(unsigned char controlFlag) {
 
 int sendDataFrames() {
 
-    struct stat st;
-
-    if(fstat(app.fd, &st))
-    {
-      perror("fstat error\n");
-      close(app.fd);
-      exit(-1);
-    }
-
-    app.fileSize = st.st_size;  //size in bytes
-    app.numBlocks = st.st_blocks; //number of 512B blocks
+   
 
     int sentBlocks = 0;
     unsigned char buffer[BUFFER_MAX_SIZE];
@@ -159,16 +155,15 @@ int receiveDataFrames() {
 
 int receiveControlFrame(unsigned char controlFlag){
 
-  char * buffer = (char *) malloc(BUFFER_MAX_SIZE * sizeof(char));
+  unsigned char * buffer = (unsigned char *) malloc(BUFFER_MAX_SIZE * sizeof(char));
 
   int buffer_length = llread(app.port, buffer);
+  buffer_length = buffer_length - 4;  //remove control header from buffer size
 
   if(buffer_length < 0){
     perror("Couldn't read control frame\n");
     exit(-1);
   }
-
-  buffer = (char *) realloc(buffer,sizeof(buffer));
 
   int data_length; // buffer will have data starting at indice 4
 
@@ -227,6 +222,18 @@ int main(int argc, char **argv) {
       app.status = EMT_STAT;
       app.filename = (char *) malloc(strlen(argv[2]));
       app.filename = argv[2];
+
+       struct stat st;
+
+      if(fstat(app.fd, &st))
+      {
+        perror("fstat error\n");
+        close(app.fd);
+        exit(-1);
+      }
+
+      app.fileSize = st.st_size;  //size in bytes
+      app.numBlocks = st.st_blocks; //number of 512B blocks
 
 
     }
@@ -295,7 +302,6 @@ int main(int argc, char **argv) {
         }
         
 
-
         //int size = 6;
         //unsigned char dataBuffer[6] = {0x7d, 0x21,0x7e, 0x12, 0x11, '\0'};
 /*
@@ -333,14 +339,18 @@ int main(int argc, char **argv) {
           exit(-1);
         }
 
-        char * buffer = (char*) malloc(BUFFER_MAX_SIZE * sizeof(char));
+                printf("filename: %s %d\n", app.filename, app.fileSize);
 
-        if(llread(app.port, buffer) == -1){
-          perror("Error reading data!");
-          exit(2);
-        }
 
-        printf("///////\n");
+        // char * buffer = (char*) malloc(BUFFER_MAX_SIZE * sizeof(char));
+
+        // if(llread(app.port, buffer) == -1){
+        //   perror("Error reading data!");
+        //   exit(2);
+        // }
+
+        // printf("///////\n");
+
 
         if (llclose(app.port, RCV_STAT)) {
           perror("Couldn't close connection\n");

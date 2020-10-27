@@ -299,17 +299,18 @@ unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int
   }
 
   first = first^buffer[i+1];
+
   return RcvCalcBcc2(buffer, ++i, first, last_data_index);
 }
 
-unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
+unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first, int size) {
 
-  if (buffer[i] == '\0') {  //reached last element
+  if (i >= size) {  //reached last element
     return first;
   }
 
   first = first^buffer[i+1];
-  return calcBcc2(buffer, ++i, first);
+  return calcBcc2(buffer, ++i, first, size);
 }
 
 int stuffBytes(unsigned char *buffer, int size) {
@@ -344,8 +345,8 @@ int llwrite(int fd, unsigned char *data, int size) {
   bool sentData = false;
 
 	do {
-    int size = 6;
-    unsigned char bcc2 = calcBcc2(data, 0, data[0]);
+    
+    unsigned char bcc2 = calcBcc2(data, 0, data[0], size);
 
     int ndata = stuffBytes(data, size);
 
@@ -469,8 +470,7 @@ int llread(int fd, unsigned char * buffer){
         if (frame[i] == DELIM) { //reached end of frame
           data_received--;
 
-          unsigned char bcc2 = RcvCalcBcc2(frame, 4, frame[4], 4 + data_received);   //TODO
-
+          unsigned char bcc2 = RcvCalcBcc2(frame, 4, frame[4], 4 + data_received);  
 
           if(frame[i-1] == bcc2){    //accepted frame  TODO destuffbytes
 
@@ -479,6 +479,7 @@ int llread(int fd, unsigned char * buffer){
               exit(-1);
             }
 
+            //printf("////////\n");
             st = START; //for further use
             return i;
           }
