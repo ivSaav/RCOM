@@ -44,6 +44,7 @@ int sendControlFrame(unsigned char controlFlag) {
   for (int i = 0; i < nameSize; i++)
     control[pos++] = app.filename[i];
 
+
   //send command
   int n = llwrite(app.port, control, pos+1);
   if (n < 0){
@@ -110,7 +111,7 @@ int receiveControlFrame(unsigned char controlFlag){
         i += j-1;
 
         app.filename = (char*) malloc(lengthV);
-        memset(app.filename, '\0', sizeof(lengthV));
+        memset(app.filename, '\0', lengthV+1);
         sprintf(app.filename, "%s", tmp_);
 
     }
@@ -146,7 +147,12 @@ int sendDataFrames() {
         for (int i = 0; i < nRead; i++)
           buffer[index + i] = dataBuffer[i];
 
-        nWrite = llwrite(app.port, dataBuffer, nRead);  //send block to receiver
+        // for (int i = 0; i < nRead; i++) {
+        //   printf()
+        // }
+        printf("sending\n");
+      
+        nWrite = llwrite(app.port, buffer, nRead+4);  //send block to receiver
         if (nWrite < nRead) {
           perror("Didn't send full data package\n");
           exit(-1);
@@ -166,7 +172,8 @@ int receiveDataFrames() {
     int receivedBlocks = 0;
     unsigned char buffer[BUFFER_MAX_SIZE];
 
-    while (receivedBlocks < app.numBlocks) {
+
+    while (true) {
 
       int nRead = llread(app.port, buffer);
       if (nRead < 0) {
@@ -175,7 +182,7 @@ int receiveDataFrames() {
       }
 
       int index = 0;
-      if (buffer[index++] == C_DATA) {
+      if (buffer[index++] != C_DATA) {
         perror("Invalid frame \n");
         exit(-1);
       }
@@ -190,13 +197,19 @@ int receiveDataFrames() {
       for (int i = 0; i < k; i++)
         data[i] = buffer[index+i];
 
-      int nWrite = write(app.fd, data, k+1);
+      int nWrite = write(app.fd, data, k);
+
+      printf("Received nseq:%d  nread:%d nwrite:%d k:%d\n", nseq, nRead, nWrite, k);
+
       if (nWrite < k) {
         perror("Didn't write full block (receiveDataFrame)\n");
         exit(-1);
       }
 
+      
       receivedBlocks++;
+
+      break; //REMOVE THIS
 
     }
     return 0;
@@ -302,17 +315,12 @@ int main(int argc, char **argv) {
           perror("Couldn't send control frame\n");
           exit(-1);
         }
-        
 
-        //int size = 6;
-        //unsigned char dataBuffer[6] = {0x7d, 0x21,0x7e, 0x12, 0x11, '\0'};
-/*
-        if (llwrite(app.port, dataBuffer, size) < 0) {
-          perror("Couldn't send data.\n");
-          exit(-1);
+        if (sendDataFrames()) {
+            perror("sendDataFrames\n");
+            exit(-1);
         }
 
-*/
         if (llclose(app.port, EMT_STAT)) {
           perror("Couldn't close conection\n");
           exit(-1);
@@ -341,17 +349,19 @@ int main(int argc, char **argv) {
           exit(-1);
         }
 
-                printf("filename: %s %d\n", app.filename, app.fileSize);
+        printf("filename: %s %d\n", app.filename, app.fileSize);
 
 
-        // char * buffer = (char*) malloc(BUFFER_MAX_SIZE * sizeof(char));
+        //open image
+        int fd = open("commands_.txt", O_CREAT|O_WRONLY | O_TRUNC | O_APPEND, S_IRWXU);
+        if (fd < 0) { perror(app.filename); exit(-1); }
 
-        // if(llread(app.port, buffer) == -1){
-        //   perror("Error reading data!");
-        //   exit(2);
-        // }
+        app.fd = fd;  //assign imaged fd to app struct
 
-        // printf("///////\n");
+        if (receiveDataFrames()) {
+            perror("sendDataFrames\n");
+            exit(-1);
+        }
 
 
         if (llclose(app.port, RCV_STAT)) {

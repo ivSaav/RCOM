@@ -295,7 +295,7 @@ unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int
   if (i >= last_data_index-1) {  //reached last element
     return first;
   }
-
+  //printf("first %X i %d  buff %c\n", first, i, buffer[i+1]);
   first = first^buffer[i+1];
 
   return RcvCalcBcc2(buffer, ++i, first, last_data_index);
@@ -303,10 +303,11 @@ unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int
 
 unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first, int size) {
 
-  if (i >= size) {  //reached last element
+  if (i >= size-2) {  //reached last element
     return first;
   }
-
+  
+  //printf("first %X i %d  buff %c\n", first, i, buffer[i+1]);
   first = first^buffer[i+1];
   return calcBcc2(buffer, ++i, first, size);
 }
@@ -364,8 +365,13 @@ int llwrite(int fd, unsigned char *data, int size) {
     buffer[buffPos] = bcc2;
     buffer[++buffPos] = DELIM;
 
+     
     //send data
     int nbytes = ndata + 6;
+
+     for (int i = 0; i < nbytes; i++) {
+          printf("%X\n", buffer[i]);
+        }
     int n = write(fd, buffer, nbytes);
 
     alarm(3);
@@ -401,7 +407,7 @@ int llread(int fd, unsigned char * buffer){
     //read field sent by writenoncanonical
     res = read(fd,&byte,1);
     frame[i] = byte;
-    //printf("st: %d  buf: %X\n", st, frame[i]);
+    printf("st: %d  buf: %X\n", st, frame[i]);
 
     switch (st) {
 
@@ -469,6 +475,8 @@ int llread(int fd, unsigned char * buffer){
           data_received--;
 
           unsigned char bcc2 = RcvCalcBcc2(frame, 4, frame[4], 4 + data_received);  
+
+          printf("bcc %X %X\n", bcc2, frame[i-1]);
 
           if(frame[i-1] == bcc2){    //accepted frame  TODO destuffbytes
 
