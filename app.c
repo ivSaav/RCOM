@@ -144,21 +144,16 @@ int sendDataFrames() {
         buffer[index++] = nRead % 255;  //L2
 
         //concatenate data to buffer
-        for (int i = 0; i < nRead; i++)
+        for (int i = 0; i <= nRead; i++)
           buffer[index + i] = dataBuffer[i];
-
-        // for (int i = 0; i < nRead; i++) {
-        //   printf()
-        // }
-        printf("sending\n");
       
-        nWrite = llwrite(app.port, buffer, nRead+4);  //send block to receiver
+        nWrite = llwrite(app.port, buffer, nRead+5);  //send block to receiver
         if (nWrite < nRead) {
           perror("Didn't send full data package\n");
           exit(-1);
         }
 
-        printf("nseq: %d  nWrite: %d\n", sentBlocks, nWrite);
+        printf("nseq: %d  nWrite: %d\n", sentBlocks, app.numBlocks);
         sentBlocks++;
 
     }
@@ -196,6 +191,7 @@ int receiveDataFrames() {
       unsigned char data[k+1];
       for (int i = 0; i < k; i++)
         data[i] = buffer[index+i];
+
 
       int nWrite = write(app.fd, data, k);
 
@@ -248,7 +244,7 @@ int main(int argc, char **argv) {
       }
 
       app.fileSize = st.st_size;  //size in bytes
-      app.numBlocks = st.st_blocks; //number of 512B blocks
+      app.numBlocks = app.fileSize < 512 ? 1 : (int) ceil(app.fileSize/512); //number of 512B blocks
 
 
     }

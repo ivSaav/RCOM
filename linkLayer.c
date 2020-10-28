@@ -339,6 +339,8 @@ int llwrite(int fd, unsigned char *data, int size) {
 
   bool rcvRR = false;
   int numTries = 0;
+  attempts = 0;
+  timeout = false;
   static bool ns_set = false; //S starts at 0
 
   bool sentData = false;
@@ -348,6 +350,7 @@ int llwrite(int fd, unsigned char *data, int size) {
     unsigned char bcc2 = calcBcc2(data, 0, data[0], size);
 
     int ndata = stuffBytes(data, size);
+    
 
     //intialize data frame header
     unsigned char buffer[ndata + 6];
@@ -369,9 +372,6 @@ int llwrite(int fd, unsigned char *data, int size) {
     //send data
     int nbytes = ndata + 6;
 
-     for (int i = 0; i < nbytes; i++) {
-          printf("%X\n", buffer[i]);
-        }
     int n = write(fd, buffer, nbytes);
 
     alarm(3);
@@ -388,7 +388,7 @@ int llwrite(int fd, unsigned char *data, int size) {
 
   } while (!sentData && (numTries < 3));
 
-   return 1;
+   return -1;
 }
 
 int llread(int fd, unsigned char * buffer){
@@ -401,12 +401,15 @@ int llread(int fd, unsigned char * buffer){
 
   static bool nr_set = 1;
 
+  printf("/////////\n");
+
   int index = 0; //index for return buffer
   while (true) {
 
     //read field sent by writenoncanonical
     res = read(fd,&byte,1);
     frame[i] = byte;
+
     printf("st: %d  buf: %X\n", st, frame[i]);
 
     switch (st) {
@@ -476,7 +479,7 @@ int llread(int fd, unsigned char * buffer){
 
           unsigned char bcc2 = RcvCalcBcc2(frame, 4, frame[4], 4 + data_received);  
 
-          printf("bcc %X %X\n", bcc2, frame[i-1]);
+          //printf("bcc %X %X\n", bcc2, frame[i-1]);
 
           if(frame[i-1] == bcc2){    //accepted frame  TODO destuffbytes
 

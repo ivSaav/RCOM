@@ -1,6 +1,7 @@
 #include "linkLayer.h"
 
 #include <sys/stat.h> 
+#include <math.h>
 
 #define C_START 0x02    //control field
 #define C_END   0x03    //control field
