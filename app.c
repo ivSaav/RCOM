@@ -2,6 +2,33 @@
 
 static App app;
 
+int intToHexa(unsigned char *ret, int value) {
+
+    unsigned char sizeValue[15];
+
+    sprintf(sizeValue, "%lx", value); //convert to hexadecimal
+    int length = strlen(sizeValue);
+    length = length / 2 + !(length % 2 == 0); //length is +1 for an odd length
+
+    long unsigned hexaSize = strtoul(sizeValue, NULL, 16);  //convert string to long unsigned
+
+
+    //printf("size %s %lx %d\n", sizeValue, hexaSize, length);
+
+    long unsigned tmp = hexaSize;
+
+    unsigned char sizeArray[25];
+
+    for (int i = 0; i < length; i++) {
+      unsigned char c = (unsigned char) tmp;//extract first 8 bits
+      sizeArray[length-1-i] = c;  //save in reverse order
+      tmp = tmp >> 8; //shift out the first 2 digits
+    }
+  
+    strcpy(ret, sizeArray);
+
+    return length;
+}
 int sendControlFrame(unsigned char controlFlag) {
 
   unsigned char control[255];
@@ -12,28 +39,14 @@ int sendControlFrame(unsigned char controlFlag) {
   //LENGTH
   control[pos++] = TLV_SIZE;
 
-  unsigned char sizeValue[10];
-  sprintf(sizeValue, "%lx", app.fileSize); //convert to hexadecimal
-  int length = strlen(sizeValue);
-  length = length / 2 + !(length % 2 == 0); //length is +1 for an odd length
+  unsigned char values[25];
+  int length = intToHexa(values, app.fileSize);
   control[pos++] = length; //length in oct
 
-  long unsigned hexaSize = strtoul(sizeValue, NULL, 16);  //convert string to long unsigned 
-
-  //printf("size %s %lx %d\n", sizeValue, hexaSize, length);
-
-  long unsigned tmp = hexaSize;
-  unsigned char sizeArray[length+1];
-  for (int i = 0; i < length; i++) {
-    unsigned char c = (unsigned char) tmp;//extract first 8 bits
-    sizeArray[length-1-i] = c;  //save in reverse order
-    tmp = tmp >> 8; //shift out the first 2 digits
-  }
-
   //concatenate size values into control
-  for (int i = 0; i < length; i++)
-    control[pos++] = sizeArray[i];
-
+  for (int i = 0; i < length; i++){
+    control[pos++] = values[i];
+  }
 
   //FILENAME
   control[pos++] = TLV_FILENAME;
@@ -44,6 +57,16 @@ int sendControlFrame(unsigned char controlFlag) {
   for (int i = 0; i < nameSize; i++)
     control[pos++] = app.filename[i];
 
+  //NUMBER OF 512 BLOCKS
+  control[pos++] = TLV_BLOCK;
+  unsigned char tmp[25];
+  int length_ = intToHexa(tmp, app.numBlocks);
+  control[pos++] = length_;
+
+   //concatenate block values into control
+  for (int i = 0; i < length; i++){
+    control[pos++] = tmp[i];
+  }
 
   //send command
   int n = llwrite(app.port, control, pos+1);
@@ -115,6 +138,21 @@ int receiveControlFrame(unsigned char controlFlag){
         sprintf(app.filename, "%s", tmp_);
 
     }
+    else if (buffer[i] == TLV_BLOCK) {
+      lengthV = (int) buffer[++i];
+
+      //printf("length %d\n",lengthV);
+
+      i++;
+      char tmp[25] = {00};
+      int j= 0;
+      for(; j < lengthV; j++)  //concatenate size value into string
+          sprintf(tmp+(j*2), "%02x", buffer[i+j]);
+      i += j-1;
+    
+      long unsigned blocks = strtoul(tmp, NULL, 16);
+      app.numBlocks = (int) blocks;
+    }
   }
 
   return 0;
@@ -140,20 +178,21 @@ int sendDataFrames() {
           exit(-1);
         }
 
-        buffer[index++] = nRead / 255;  //L1
-        buffer[index++] = nRead % 255;  //L2
+        buffer[index++] = nRead / 256;  //L1
+        buffer[index++] = nRead % 256;  //L2
 
         //concatenate data to buffer
         for (int i = 0; i <= nRead; i++)
           buffer[index + i] = dataBuffer[i];
-      
-        nWrite = llwrite(app.port, buffer, nRead+5);  //send block to receiver
-        if (nWrite < nRead) {
-          perror("Didn't send full data package\n");
-          exit(-1);
-        }
 
-        printf("nseq: %d  nWrite: %d\n", sentBlocks, app.numBlocks);
+        nWrite = llwrite(app.port, buffer, nRead+5);  //send block to receiver
+        printf("nread: %d  nWrite: %d\n",nRead , nWrite);
+        // if (nWrite < 0) {
+        //   perror("Didn't send full data package\n");
+        //   exit(-1);
+        // }
+
+        printf("nseq: %d  nWrite: %d\n", sentBlocks, nWrite);
         sentBlocks++;
 
     }
@@ -165,10 +204,10 @@ int sendDataFrames() {
 int receiveDataFrames() {
 
     int receivedBlocks = 0;
-    unsigned char buffer[BUFFER_MAX_SIZE];
+    char buffer[BUFFER_MAX_SIZE];
 
 
-    while (true) {
+    while (receivedBlocks < app.numBlocks) {
 
       int nRead = llread(app.port, buffer);
       if (nRead < 0) {
@@ -189,23 +228,25 @@ int receiveDataFrames() {
       int k = 256*l2+l1;  //number of octets
 
       unsigned char data[k+1];
-      for (int i = 0; i < k; i++)
+      for (int i = 0; i < k; i++) {
         data[i] = buffer[index+i];
+        printf("data %X %c\n", data[i],data[i]);
+
+      }
 
 
-      int nWrite = write(app.fd, data, k);
+      int nWrite = write(app.fd, buffer, k);
 
       printf("Received nseq:%d  nread:%d nwrite:%d k:%d\n", nseq, nRead, nWrite, k);
 
-      if (nWrite < k) {
-        perror("Didn't write full block (receiveDataFrame)\n");
-        exit(-1);
-      }
+      // if (nWrite < k) {
+      //   perror("Didn't write full block (receiveDataFrame)\n");
+      //   exit(-1);
+      // }
 
       
       receivedBlocks++;
 
-      break; //REMOVE THIS
 
     }
     return 0;
@@ -244,8 +285,7 @@ int main(int argc, char **argv) {
       }
 
       app.fileSize = st.st_size;  //size in bytes
-      app.numBlocks = app.fileSize < 512 ? 1 : (int) ceil(app.fileSize/512); //number of 512B blocks
-
+      app.numBlocks = app.fileSize/BLOCK_SIZE + (app.fileSize % BLOCK_SIZE != 0);
 
     }
     else {
@@ -345,11 +385,11 @@ int main(int argc, char **argv) {
           exit(-1);
         }
 
-        printf("filename: %s %d\n", app.filename, app.fileSize);
+        printf("filename: %s size:%d blocks:%d\n", app.filename, app.fileSize, app.numBlocks);
 
 
         //open image
-        int fd = open("commands_.txt", O_CREAT|O_WRONLY | O_TRUNC | O_APPEND, S_IRWXU);
+        int fd = open("p.txt", O_CREAT|O_WRONLY | O_TRUNC, S_IRWXU);
         if (fd < 0) { perror(app.filename); exit(-1); }
 
         app.fd = fd;  //assign imaged fd to app struct

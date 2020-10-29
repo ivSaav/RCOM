@@ -33,7 +33,7 @@ int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedContro
 //receive supervision/numbered frame
 int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedControl){
 
-  static enum state st = START;
+   enum state st = START;
 
   //printf("expected %X %X\n", expectedFlag, expectedControl);
 
@@ -46,12 +46,16 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
   timeout = false;
 
   unsigned char bcc = 0;
+  //printf("//////////\n");
   while (!(end || timeout)) {
 
     //read field sent by writenoncanonical
     unsigned char byte;
     int res = read(fd,&byte,1);
     buf[i] = byte;
+
+    //printf("st: %d  buf: %X\n", st, buf[i]);
+
 
     switch (st) {
 
@@ -350,6 +354,10 @@ int llwrite(int fd, unsigned char *data, int size) {
     unsigned char bcc2 = calcBcc2(data, 0, data[0], size);
 
     int ndata = stuffBytes(data, size);
+
+    for (int i = 0; i < ndata; i++) {
+      printf("stuffed %X %c\n", stuffed[i], stuffed[i]);
+    }
     
 
     //intialize data frame header
@@ -383,6 +391,7 @@ int llwrite(int fd, unsigned char *data, int size) {
         return n; //success
     }
     else {
+      printf("Invalid acknowledment\n");
       numTries++;
     }
 
@@ -401,7 +410,7 @@ int llread(int fd, unsigned char * buffer){
 
   static bool nr_set = 1;
 
-  printf("/////////\n");
+  //printf("/////////\n");
 
   int index = 0; //index for return buffer
   while (true) {
@@ -410,7 +419,7 @@ int llread(int fd, unsigned char * buffer){
     res = read(fd,&byte,1);
     frame[i] = byte;
 
-    printf("st: %d  buf: %X\n", st, frame[i]);
+    //printf("st: %d  buf: %X\n", st, frame[i]);
 
     switch (st) {
 
@@ -520,6 +529,7 @@ int llread(int fd, unsigned char * buffer){
         break;
 
       case DESTUFFING:
+      printf("stufftuff\n");
 
         if(frame[i] == 0x5e){
           frame[i] = 0x7e;
