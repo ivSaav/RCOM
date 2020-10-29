@@ -37,7 +37,18 @@
 
 #define MAX_ATTEMPTS 3
 
-enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK};
+#define MAX_SIZE 1024
+
+typedef struct {
+    char port[20];/*Dispositivo /dev/ttySx, x = 0, 1*/
+    int baudRate;/*Velocidade de transmissão*/
+    unsigned int sequenceNumber;   /*Número de sequência da trama: 0, 1*/
+    unsigned int timeout;/*Valor do temporizador: 1 s*/
+    unsigned int numTransmissions; /*Número de tentativas em caso defalha*/
+    char frame[MAX_SIZE];/*Trama*/
+} linkLayer;
+
+enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DESTUFFING};
 
 int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedControl);
 
@@ -54,7 +65,7 @@ int RcvSetupConnection(int fd) ;
 int EmtCloseConnection(int fd);
 int RcvCloseConnection(int fd);
 
-unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first);
+unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first, int size);
 unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int last_data_index);
 
 int stuffBytes(unsigned char *buffer, int size);

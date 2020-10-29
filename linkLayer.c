@@ -1,8 +1,10 @@
-#include "utils.h"
+#include "linkLayer.h"
 
+//TODO organize into struct (slides)
 static int attempts = 0;
 static bool tryToSend = true, timeout = false;
-static unsigned char stuffed[512];
+static unsigned char frame[512];
+static unsigned char stuffed[512]; //TODO change
 
 void signalHandler(){
   printf("Timeout.\n");
@@ -31,7 +33,7 @@ int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedContro
 //receive supervision/numbered frame
 int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedControl){
 
-  static enum state st = START;
+   enum state st = START;
 
   //printf("expected %X %X\n", expectedFlag, expectedControl);
 
@@ -44,14 +46,16 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
   timeout = false;
 
   unsigned char bcc = 0;
-  while (!(end || timeout)) { 
-     
+  //printf("//////////\n");
+  while (!(end || timeout)) {
+
     //read field sent by writenoncanonical
     unsigned char byte;
     int res = read(fd,&byte,1);
     buf[i] = byte;
 
-    printf("st: %d  buf: %X\n", st, buf[i]); 
+    //printf("st: %d  buf: %X\n", st, buf[i]);
+
 
     switch (st) {
 
@@ -155,7 +159,7 @@ int llopen(int fd, int status) {
             perror("Invalid flag.\n");
             exit(3);
     }
- 
+
     return 0;
 }
 
@@ -163,15 +167,15 @@ int llopen(int fd, int status) {
 int EmtSetupConnection(int fd) {
 
      while(tryToSend){
-    
+
         int res = 0;
         //send set frame
         unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
-        res = write(fd,buffer,BUF_SIZE); 
+        res = write(fd,buffer,BUF_SIZE);
 
         alarm(3);
 
-        if (!receiveFrame(fd, A_RC, UA)) { //receive acknowledgement from receiver
+        if (!receiveFrame(fd, A_EM, UA)) { //receive acknowledgement from receiver
             tryToSend = false;
             return 0; //success
         }
@@ -180,13 +184,13 @@ int EmtSetupConnection(int fd) {
     }
 
   }
-    
+
     return 1; //failure
 }
 
 //setup connection from receiver
 int RcvSetupConnection(int fd) {
-    
+
     int n = 0;
     unsigned char buf[6];
 
@@ -197,12 +201,13 @@ int RcvSetupConnection(int fd) {
         perror("Received invalid frame.\n");
         exit(1);
     }
-        
-    if(sendAcknowledgement(fd, A_RC, UA) == -1){
+
+    if(sendAcknowledgement(fd, A_EM, UA) == -1){
         perror("Error sending acknowledgement!");
         exit(2);
     }
 
+    printf("Connection established.\n");
     return 0;
 }
 
@@ -217,17 +222,17 @@ int llclose(int fd, int status) {
   else {
     return RcvCloseConnection(fd);
   }
-  
+
 }
 
 int EmtCloseConnection(int fd) {
 
   while(tryToSend && (attempts < 3)){
-      
+
       int res = 0;
       //send set frame
       unsigned char buffer[5] = {DELIM, A_EM, DISC,  A_EM^DISC, DELIM};
-      res = write(fd,buffer,BUF_SIZE); 
+      res = write(fd,buffer,BUF_SIZE);
 
       alarm(3);
 
@@ -235,7 +240,7 @@ int EmtCloseConnection(int fd) {
         printf("Invalid acknowledgement.\n");
       }
 
-      if (sendAcknowledgement(fd, A_RC,  UA) <= 0) { 
+      if (sendAcknowledgement(fd, A_RC,  UA) <= 0) {
         printf("Couldn't send acknowledgment.\n");
       }
       else {
@@ -265,7 +270,7 @@ int RcvCloseConnection(int fd) {
     int res = 0;
     //send DISC frame
     unsigned char buffer[5] = {DELIM, A_RC, DISC,  A_RC^DISC, DELIM};
-    res = write(fd,buffer,BUF_SIZE); 
+    res = write(fd,buffer,BUF_SIZE);
     if (res <= 0) {
       perror("write error\n");
       exit(1);
@@ -280,8 +285,8 @@ int RcvCloseConnection(int fd) {
     else {
       printf("Invalid frame (llclose).\n");
     }
-  
-  
+
+
   }
 
   return 1;
@@ -294,25 +299,27 @@ unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int
   if (i >= last_data_index-1) {  //reached last element
     return first;
   }
-  
+  //printf("first %X i %d  buff %c\n", first, i, buffer[i+1]);
   first = first^buffer[i+1];
+
   return RcvCalcBcc2(buffer, ++i, first, last_data_index);
 }
 
-unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first) {
+unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first, int size) {
 
-  if (buffer[i] == '\0') {  //reached last element
+  if (i >= size-2) {  //reached last element
     return first;
   }
   
+  //printf("first %X i %d  buff %c\n", first, i, buffer[i+1]);
   first = first^buffer[i+1];
-  return calcBcc2(buffer, ++i, first);
+  return calcBcc2(buffer, ++i, first, size);
 }
 
 int stuffBytes(unsigned char *buffer, int size) {
-  
+
   int j = 0;
-  for (int i = 0; i < size; i++) { 
+  for (int i = 0; i < size; i++) {
 
     if (buffer[i] == DELIM) {
       stuffed[j] = ESC_OCT;
@@ -331,26 +338,30 @@ int stuffBytes(unsigned char *buffer, int size) {
   return j-1;
 }
 
-int DestuffBytes(unsigned char *buffer, int size) {
-  return 0;
-}
 
-int llwrite(int fd, unsigned char *data, int size) {	
-  
+int llwrite(int fd, unsigned char *data, int size) {
+
   bool rcvRR = false;
   int numTries = 0;
+  attempts = 0;
+  timeout = false;
   static bool ns_set = false; //S starts at 0
 
   bool sentData = false;
 
 	do {
-    int size = 6;
-    unsigned char bcc2 = calcBcc2(data, 0, data[0]);
+    
+    unsigned char bcc2 = calcBcc2(data, 0, data[0], size);
 
     int ndata = stuffBytes(data, size);
 
+    for (int i = 0; i < ndata; i++) {
+      printf("stuffed %X %c\n", stuffed[i], stuffed[i]);
+    }
+    
+
     //intialize data frame header
-    unsigned char buffer[ndata + 6]; 
+    unsigned char buffer[ndata + 6];
     buffer[0] = DELIM;
     buffer[1] = A_EM;
     buffer[2] = ns_set ? 0x40 : 0x00; //Control flag: S=1 --> 0x40 ; S=0 --> 0x00
@@ -365,8 +376,10 @@ int llwrite(int fd, unsigned char *data, int size) {
     buffer[buffPos] = bcc2;
     buffer[++buffPos] = DELIM;
 
+     
     //send data
     int nbytes = ndata + 6;
+
     int n = write(fd, buffer, nbytes);
 
     alarm(3);
@@ -375,19 +388,19 @@ int llwrite(int fd, unsigned char *data, int size) {
     if (!receiveFrame(fd, A_EM, ns_set ? (0x0F & RR) : RR)) { //if S=0 expect to receive S=1
         ns_set = !ns_set;
         tryToSend = false;
-        return 0; //success
+        return n; //success
     }
     else {
+      printf("Invalid acknowledment\n");
       numTries++;
     }
-  
+
   } while (!sentData && (numTries < 3));
 
-   return 1;
+   return -1;
 }
 
 int llread(int fd, unsigned char * buffer){
-  enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DATA, BCC2_OK};
 
   enum state st = START;
 
@@ -397,30 +410,29 @@ int llread(int fd, unsigned char * buffer){
 
   static bool nr_set = 1;
 
-  while (true) { 
-     
+  int index = 0; //index for return buffer
+  while (true) {
     //read field sent by writenoncanonical
     res = read(fd,&byte,1);
-    buffer[i] = byte;
-    printf("st: %d  buf: %X\n", st, buffer[i]);  
+    frame[i] = byte;
 
     switch (st) {
 
       case START: //validate header
 
-        if (buffer[i] == DELIM) {
+        if (frame[i] == DELIM) {
           st = FLAG_RCV;
           i++;
         }
         break;
 
-      case FLAG_RCV:  
+      case FLAG_RCV:
 
-        if (buffer[i] == A_EM) {
+        if (frame[i] == A_EM) {
           st = A_RCV;
           i++;
         }
-        else if (buffer[i] == DELIM) {
+        else if (frame[i] == DELIM) {
           continue;
         }
         else {
@@ -431,12 +443,12 @@ int llread(int fd, unsigned char * buffer){
 
       case A_RCV:
 
-        if (buffer[i] == C_0 || buffer[i] == C_1) {
-          nr_set = (buffer[i] == C_1); //alternate between 1 and 0
+        if (frame[i] == C_0 || frame[i] == C_1) {
+          nr_set = (frame[i] == C_1); //alternate between 1 and 0
           st = C_RCV;
           i++;
         }
-        else if (buffer[i] == DELIM) {
+        else if (frame[i] == DELIM) {
             st = FLAG_RCV;
             i = 1;
         }
@@ -448,13 +460,13 @@ int llread(int fd, unsigned char * buffer){
 
       case C_RCV:
 
-        bcc = buffer[1]^buffer[2];
+        bcc = frame[1]^frame[2];
 
-        if (buffer[i] == bcc) {
+        if (frame[i] == bcc) {
             st = BCC_OK;
             i++;
         }
-        else if (buffer[i] == DELIM) {
+        else if (frame[i] == DELIM) {
           st = FLAG_RCV;
           i = 1;
         }
@@ -464,26 +476,28 @@ int llread(int fd, unsigned char * buffer){
         }
         break;
 
-      case BCC_OK:  //start reading data 
-      
-        if (buffer[i] == DELIM) { //reached end of frame
+      case BCC_OK:  //start reading data
+
+        if (frame[i] == DELIM) { //reached end of frame
           data_received--;
 
-          unsigned char bcc2 = RcvCalcBcc2(buffer, 4, buffer[4], 4 + data_received);   //TODO 
+          unsigned char bcc2 = RcvCalcBcc2(frame, 4, frame[4], 4 + data_received);  
 
+          //printf("bcc %X %X\n", bcc2, frame[i-1]);
 
-          if(true/*buffer[i-1] == bcc2*/){    //accepted frame  TODO destuffbytes
-            
+          if(frame[i-1] == bcc2){    //accepted frame  TODO destuffbytes
+
             if (sendAcknowledgement(fd, A_EM,  nr_set ? (0x0F & RR) : RR) <= 0) { //if S=1 send S=0
               perror("Couldn't send acknowledgement.\n");
               exit(-1);
             }
-  
+
+            //printf("////////\n");
             st = START; //for further use
             return i;
           }
           else{   //rejected frame
-      
+
             if (sendAcknowledgement(fd, A_EM, nr_set ? (0x0F & RJ) : RJ) <= 0) {
                 perror("Couldn't send acknowledgement.\n");
                 exit(-1);
@@ -496,16 +510,39 @@ int llread(int fd, unsigned char * buffer){
             data_received = 0;
           }
         }
-        else {              //add byte to buffer
-          data_received++;
-          i++;
+        else {              //add byte to frame
+          if(frame[i] == 0x7d){
+            st = DESTUFFING;
+          }
+          else{
+            buffer[index++] = frame[i];
+            data_received++;
+            i++;
+          }
 
-          buffer = (char*) realloc(buffer, (6 + data_received)*sizeof(char));
+        }
+        break;
+
+      case DESTUFFING:
+
+        if(frame[i] == 0x5e){
+          frame[i] = 0x7e;
+        }
+        else if(frame[i] == 0x5d){
+          frame[i] = 0x7d;
         }
 
+        buffer[index++] = frame[i];
+        data_received++;
+        i++;
+
+        st = BCC_OK;
+
+
       break;
+
       }
     }
-  
+
     return -1;
 }
