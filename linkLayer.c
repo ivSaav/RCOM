@@ -410,16 +410,11 @@ int llread(int fd, unsigned char * buffer){
 
   static bool nr_set = 1;
 
-  //printf("/////////\n");
-
   int index = 0; //index for return buffer
   while (true) {
-
     //read field sent by writenoncanonical
     res = read(fd,&byte,1);
     frame[i] = byte;
-
-    //printf("st: %d  buf: %X\n", st, frame[i]);
 
     switch (st) {
 
@@ -529,7 +524,6 @@ int llread(int fd, unsigned char * buffer){
         break;
 
       case DESTUFFING:
-      printf("stufftuff\n");
 
         if(frame[i] == 0x5e){
           frame[i] = 0x7e;
@@ -538,7 +532,7 @@ int llread(int fd, unsigned char * buffer){
           frame[i] = 0x7d;
         }
 
-        buffer[i] = frame[i];
+        buffer[index++] = frame[i];
         data_received++;
         i++;
 

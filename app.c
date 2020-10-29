@@ -206,9 +206,7 @@ int receiveDataFrames() {
     int receivedBlocks = 0;
     char buffer[BUFFER_MAX_SIZE];
 
-
     while (receivedBlocks < app.numBlocks) {
-
       int nRead = llread(app.port, buffer);
       if (nRead < 0) {
         perror("llread error (receiveDataFrames)\n");
@@ -235,7 +233,7 @@ int receiveDataFrames() {
       }
 
 
-      int nWrite = write(app.fd, buffer, k);
+      int nWrite = write(app.fd, data, k);
 
       printf("Received nseq:%d  nread:%d nwrite:%d k:%d\n", nseq, nRead, nWrite, k);
 
@@ -389,7 +387,7 @@ int main(int argc, char **argv) {
 
 
         //open image
-        int fd = open("p.txt", O_CREAT|O_WRONLY | O_TRUNC, S_IRWXU);
+        int fd = open("p.gif", O_CREAT|O_WRONLY | O_TRUNC, S_IRWXU);
         if (fd < 0) { perror(app.filename); exit(-1); }
 
         app.fd = fd;  //assign imaged fd to app struct
