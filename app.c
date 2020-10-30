@@ -12,23 +12,19 @@ int intToHexa(unsigned char *ret, int value) {
 
     long unsigned hexaSize = strtoul(sizeValue, NULL, 16);  //convert string to long unsigned
 
-
-    //printf("size %s %lx %d\n", sizeValue, hexaSize, length);
-
-    long unsigned tmp = hexaSize;
-
-    unsigned char sizeArray[25];
+    unsigned char sizeArray[25]; // Porque é que é 25?
 
     for (int i = 0; i < length; i++) {
-      unsigned char c = (unsigned char) tmp;//extract first 8 bits
+      unsigned char c = (unsigned char) hexaSize;//extract first 8 bits
       sizeArray[length-1-i] = c;  //save in reverse order
-      tmp = tmp >> 8; //shift out the first 2 digits
+      hexaSize = hexaSize >> 8; //shift out the first 2 digits
     }
   
     strcpy(ret, sizeArray);
 
     return length;
 }
+
 int sendControlFrame(unsigned char controlFlag) {
 
   unsigned char control[255];
@@ -36,39 +32,40 @@ int sendControlFrame(unsigned char controlFlag) {
   int pos = 0;
   control[pos++] = controlFlag;
 
-  //LENGTH
+  // Saven length into control
   control[pos++] = TLV_SIZE;
 
+  // Converting length to hexadecimal
   unsigned char values[25];
   int length = intToHexa(values, app.fileSize);
-  control[pos++] = length; //length in oct
+  control[pos++] = length;
 
-  //concatenate size values into control
+  // Concatenate size values into control
   for (int i = 0; i < length; i++){
     control[pos++] = values[i];
   }
 
-  //FILENAME
+  // Save Filename value and size into control
   control[pos++] = TLV_FILENAME;
   int nameSize = strlen(app.filename);
-
   control[pos++] = (unsigned char) nameSize;
 
+  // Concatenate filename value into control
   for (int i = 0; i < nameSize; i++)
     control[pos++] = app.filename[i];
 
-  //NUMBER OF 512 BLOCKS
+  //Number of 512 blocks 
   control[pos++] = TLV_BLOCK;
   unsigned char tmp[25];
   int length_ = intToHexa(tmp, app.numBlocks);
   control[pos++] = length_;
 
-   //concatenate block values into control
+  //Concatenate block values into control
   for (int i = 0; i < length; i++){
     control[pos++] = tmp[i];
   }
 
-  //send command
+  // Send the command through app.port
   int n = llwrite(app.port, control, pos+1);
   if (n < 0){
     perror("Couldn't send control frame\n");
@@ -80,10 +77,13 @@ int sendControlFrame(unsigned char controlFlag) {
   return 0;
 
 }
+
+
 int receiveControlFrame(unsigned char controlFlag){
 
-  unsigned char * buffer = (unsigned char *) malloc(BUFFER_MAX_SIZE * sizeof(char));
-
+  unsigned char * buffer = (unsigned char *) malloc(BUFFER_MAX_SIZE * sizeof(char)); // Buffer for control frame
+  
+  // Read the control frame
   int buffer_length = llread(app.port, buffer);
   buffer_length = buffer_length - 4;  //remove control header from buffer size
 
@@ -92,64 +92,75 @@ int receiveControlFrame(unsigned char controlFlag){
     exit(-1);
   }
 
-  
-  int data_length; // buffer will have data starting at indice 4
-
+  // Check if the control flags match
   if(buffer[0] != controlFlag){
     perror("Control Flag is different\n");
     exit(-2);
   }
 
-  int lengthV = 0;
+  int value_length = 0;
+
   for (int i = 1; i < buffer_length; i++) {
 
-    // printf("i %d\n", i);
-
     if (buffer[i] == TLV_SIZE) {
-      lengthV = (int) buffer[++i];
-
-      //printf("length %d\n",lengthV);
+      // Get the number of octets read
+      value_length = (int) buffer[++i];
 
       i++;
-      char tmp[25] = {00};
-      int j= 0;
-      for(; j < lengthV; j++)  //concatenate size value into string
-          sprintf(tmp+(j*2), "%02x", buffer[i+j]);
-      i += j-1;
-    
+
+      char tmp[value_length]; // temporary array to store the string value read
+
+      // Concatenate size value into string
+      for(int j= 0; j < value_length; j++){  
+          sprintf(tmp+(j*2), "%02x", buffer[i]);
+          i++;
+      }
+
+      i--;
+
+      // Save the value into the App struct
       long unsigned fileSize = strtoul(tmp, NULL, 16);
       app.fileSize = (int) fileSize;
     }
     else if (buffer[i] == TLV_FILENAME) {
-        lengthV = (int) buffer[++i];
+        // Get the number of octets read
+        value_length = (int) buffer[++i];
 
         i++;
-        char tmp_[lengthV];
-        int j = 0;
-        for (; j < lengthV; j++) {
-          tmp_[j] = (char) buffer[i+j];
-          // printf("%C\n", tmp_[j]);
-        }
-        tmp_[lengthV] = '\0';
-        i += j-1;
 
-        app.filename = (char*) malloc(lengthV);
-        memset(app.filename, '\0', lengthV+1);
+        char tmp_[value_length]; // temporary array to store the string value read
+
+        // Concatenate size value into string
+        for (int j = 0; j < value_length; j++) {
+          tmp_[j] = (char) buffer[i];
+          i++;
+        }
+        tmp_[value_length] = '\0';
+
+        i--;
+
+        // Save the filename in the app struct
+        app.filename = (char*) malloc(value_length);
+        memset(app.filename, '\0', value_length+1);
         sprintf(app.filename, "%s", tmp_);
 
     }
     else if (buffer[i] == TLV_BLOCK) {
-      lengthV = (int) buffer[++i];
-
-      //printf("length %d\n",lengthV);
+      // Get the number of octets read
+      value_length = (int) buffer[++i];
 
       i++;
-      char tmp[25] = {00};
-      int j= 0;
-      for(; j < lengthV; j++)  //concatenate size value into string
-          sprintf(tmp+(j*2), "%02x", buffer[i+j]);
-      i += j-1;
-    
+
+      char tmp[value_length]; // temporary array to store the string value read
+      
+      // Concatenate size value into string
+      for(int j= 0; j < value_length; j++){  
+          sprintf(tmp+(j*2), "%02x", buffer[i]);
+          i++;
+      }
+      i--;
+
+      // Save the number of blocks into the struct
       long unsigned blocks = strtoul(tmp, NULL, 16);
       app.numBlocks = (int) blocks;
     }
@@ -236,12 +247,6 @@ int receiveDataFrames() {
       int nWrite = write(app.fd, data, k);
 
       printf("Received nseq:%d  nread:%d nwrite:%d k:%d\n", nseq, nRead, nWrite, k);
-
-      // if (nWrite < k) {
-      //   perror("Didn't write full block (receiveDataFrame)\n");
-      //   exit(-1);
-      // }
-
       
       receivedBlocks++;
 
@@ -387,7 +392,7 @@ int main(int argc, char **argv) {
 
 
         //open image
-        int fd = open("p.gif", O_CREAT|O_WRONLY | O_TRUNC, S_IRWXU);
+        int fd = open("p.txt", O_CREAT|O_WRONLY | O_TRUNC, S_IRWXU);
         if (fd < 0) { perror(app.filename); exit(-1); }
 
         app.fd = fd;  //assign imaged fd to app struct

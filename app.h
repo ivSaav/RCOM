@@ -35,7 +35,7 @@ int intToHexa(unsigned char *ret, int value);
 
 /**
  * Sends a Control Frame through the file descriptor
- * described in struct App as fd
+ * described in struct App as port
  * 
  * using char controlFlag :- controlFlag representing if
  * it's the begging or end of the connection
@@ -46,7 +46,7 @@ int sendControlFrame(unsigned char controlFlag);
 
 /**
  * Receives a Control Frame through the file descriptor
- * described in struct App as fd
+ * described in struct App as port
  * 
  * using char controlFlag :- control flag to be compared to
  * the one received
