@@ -84,10 +84,10 @@ int receiveControlFrame(unsigned char controlFlag){
   unsigned char * buffer = (unsigned char *) malloc(BUFFER_MAX_SIZE * sizeof(char)); // Buffer for control frame
   
   // Read the control frame
-  int buffer_length = llread(app.port, buffer);
-  buffer_length = buffer_length - 4;  //remove control header from buffer size
+  int bufferLength = llread(app.port, buffer);
+  bufferLength = bufferLength - 4;  //remove control header from buffer size
 
-  if(buffer_length < 0){
+  if(bufferLength < 0){
     perror("Couldn't read control frame\n");
     exit(-1);
   }
@@ -98,24 +98,24 @@ int receiveControlFrame(unsigned char controlFlag){
     exit(-2);
   }
 
-  int value_length = 0;
+  int valueLength = 0;
   char type;
 
-  for (int i = 1; i < buffer_length; i++) {
+  for (int i = 1; i < bufferLength; i++) {
     type = buffer[i];
 
     // Get the number of octets read
-    value_length = (int) buffer[++i];
+    valueLength = (int) buffer[++i];
 
-    i++;
+    i++; // Increment i to be at the value indice
 
-    char tmp[value_length]; // temporary array to store the string value read
+    char tmp[valueLength]; // temporary array to store the string value read
 
     switch (type)
     {
     case TLV_SIZE:
       // Concatenate size value into string
-      for(int j= 0; j < value_length; j++){  
+      for(int j= 0; j < valueLength; j++){  
           sprintf(tmp+(j*2), "%02x", buffer[i]);
           i++;
       }
@@ -128,31 +128,31 @@ int receiveControlFrame(unsigned char controlFlag){
 
     case TLV_FILENAME:
       // Concatenate size value into string
-        for (int j = 0; j < value_length; j++) {
+        for (int j = 0; j < valueLength; j++) {
           tmp[j] = (char) buffer[i];
           i++;
         }
-        tmp[value_length] = '\0';
+        tmp[valueLength] = '\0';
 
         // Save the filename in the app struct
-        app.filename = (char*) malloc(value_length);
-        memset(app.filename, '\0', value_length+1);
+        app.filename = (char*) malloc(valueLength);
+        memset(app.filename, '\0', valueLength+1);
         sprintf(app.filename, "%s", tmp);
         
       break;
 
     case TLV_BLOCK:
       // Concatenate size value into string
-      for(int j= 0; j < value_length; j++){  
+      for(int j= 0; j < valueLength; j++){  
           sprintf(tmp+(j*2), "%02x", buffer[i]);
           i++;
       }
+
       // Save the number of blocks into the struct
       long unsigned blocks = strtoul(tmp, NULL, 16);
       app.numBlocks = (int) blocks;
 
       break;
-
     }
 
     i--;
@@ -162,10 +162,11 @@ int receiveControlFrame(unsigned char controlFlag){
 
 int sendDataFrames() {
 
-    int sentBlocks = 0;
-    unsigned char buffer[BUFFER_MAX_SIZE];
-    unsigned char dataBuffer[BLOCK_SIZE];
-    int nRead = 0, nWrite = 0;
+    int sentBlocks = 0, nRead = 0, nWrite = 0;
+
+    unsigned char buffer[BUFFER_MAX_SIZE]; // Buffer that has both data and flags
+    unsigned char dataBuffer[BLOCK_SIZE]; // Buffer that only holds data blocs
+
     while(sentBlocks < app.numBlocks) {
 
         int index = 0;
@@ -189,11 +190,6 @@ int sendDataFrames() {
 
         nWrite = llwrite(app.port, buffer, nRead+5);  //send block to receiver
         printf("nread: %d  nWrite: %d\n",nRead , nWrite);
-        // if (nWrite < 0) {
-        //   perror("Didn't send full data package\n");
-        //   exit(-1);
-        // }
-
         printf("nseq: %d  nWrite: %d\n", sentBlocks, nWrite);
         sentBlocks++;
 
