@@ -264,17 +264,19 @@ int main(int argc, char **argv) {
     }
     else if (argc == 3) { //Transmitter
 
-      //open image
+      // Open file to send
       int fd = open(argv[2], O_RDONLY);
       if (fd < 0) { perror(argv[2]); exit(-1); }
 
+      // Save the information about the file to send in App Struct
       app.fd = fd;
       app.status = EMT_STAT;
       app.filename = (char *) malloc(strlen(argv[2]));
       app.filename = argv[2];
 
-       struct stat st;
+      struct stat st;
 
+      // Get the file attributes
       if(fstat(app.fd, &st))
       {
         perror("fstat error\n");
@@ -282,7 +284,8 @@ int main(int argc, char **argv) {
         exit(-1);
       }
 
-      app.fileSize = st.st_size;  //size in bytes
+      // Save important attributes in App Struct
+      app.fileSize = st.st_size;  // Size in bytes
       app.numBlocks = app.fileSize/BLOCK_SIZE + (app.fileSize % BLOCK_SIZE != 0);
 
     }
@@ -292,7 +295,7 @@ int main(int argc, char **argv) {
         exit(-1);
     }
 
-    //set alarm handler
+    // Set alarm handler to handle timeouts
     if (signal(SIGALRM, signalHandler)) {
       perror("Couldn't install alarm\n");
       exit(-1);
@@ -301,21 +304,23 @@ int main(int argc, char **argv) {
     int portfd, c, res;
     struct termios oldtio,newtio;
 
-  /*
-    Open serial port device for reading and writing and not as controlling tty
-    because we don't want to get killed if linenoise sends CTRL-C.
-  */
+    /*
+      Open serial port device for reading and writing and not as controlling tty
+      because we don't want to get killed if linenoise sends CTRL-C.
+    */
 
     portfd = open(argv[1], O_RDWR | O_NOCTTY);
     if (portfd <0) { perror(argv[1]); exit(-1); }
 
     app.port = portfd;
 
-    if ( tcgetattr(portfd,&oldtio) == -1) { /* save current port settings */
+    // Save current port settings
+    if (tcgetattr(portfd,&oldtio) == -1) {
       perror("tcgetattr");
       exit(-1);
     }
 
+    // Set new flags to be used in the port
     bzero(&newtio, sizeof(newtio));
     newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
     newtio.c_iflag = IGNPAR;
@@ -329,7 +334,7 @@ int main(int argc, char **argv) {
 
     tcflush(portfd, TCIOFLUSH);
 
-    if ( tcsetattr(portfd,TCSANOW,&newtio) == -1) {
+    if (tcsetattr(portfd,TCSANOW,&newtio) == -1) {
       perror("tcsetattr");
       exit(-1);
     }
@@ -338,6 +343,7 @@ int main(int argc, char **argv) {
 
     if (app.status == EMT_STAT) { //Transmitter
 
+        // Open the connection
         if (llopen(app.port, EMT_STAT)) {
             perror("Couldn't open connection to noncanonical.\n");
             exit(-1);
@@ -345,21 +351,25 @@ int main(int argc, char **argv) {
 
         printf("Connection established.\n");
 
+        // Send a control frame to warn the initiation of the transfer
         if(sendControlFrame(C_START)){
           perror("Couldn't send control frame\n");
           exit(-1);
         }
 
+        // Send all the data
         if (sendDataFrames()) {
             perror("sendDataFrames\n");
             exit(-1);
         }
 
+        // Close the connection
         if (llclose(app.port, EMT_STAT)) {
           perror("Couldn't close conection\n");
           exit(-1);
         }
 
+        // Restore the port settings
         if ( tcsetattr(app.port,TCSANOW,&oldtio) == -1) {
           perror("tcsetattr");
           exit(-1);
@@ -367,17 +377,20 @@ int main(int argc, char **argv) {
 
         sleep(1);
 
+        // Close all the open files
         close(app.fd);
         close(app.port);
 
     }
-    else {  //RCV_STAT
+    else {  // Receiver
 
+        // Open the connection
         if (llopen(app.port, RCV_STAT)) {
           perror("stateMachine");
           exit(1);
         }
-
+        
+        // Receive a control frame to confirm the initiation of the transfer
         if(receiveControlFrame(C_START)){
           perror("Couldn't receive control frame\n");
           exit(-1);
@@ -386,23 +399,31 @@ int main(int argc, char **argv) {
         printf("filename: %s size:%d blocks:%d\n", app.filename, app.fileSize, app.numBlocks);
 
 
-        //open image
+        // Open file where we save the information received
         int fd = open("p.txt", O_CREAT|O_WRONLY | O_TRUNC, S_IRWXU);
         if (fd < 0) { perror(app.filename); exit(-1); }
 
-        app.fd = fd;  //assign imaged fd to app struct
+        app.fd = fd;  // Assign file fd to app struct
 
+        // Read all the data frames and save them into the file
         if (receiveDataFrames()) {
             perror("sendDataFrames\n");
             exit(-1);
         }
 
-
+        // Close the connection
         if (llclose(app.port, RCV_STAT)) {
           perror("Couldn't close connection\n");
           exit(1);
         }
-        tcsetattr(app.port,TCSANOW,&oldtio);
+
+        // Restore the port settings
+        if ( tcsetattr(app.port,TCSANOW,&oldtio) == -1) {
+          perror("tcsetattr");
+          exit(-1);
+        }
+
+        // Close all the open files
         close(app.fd);
         close(app.port);
 
