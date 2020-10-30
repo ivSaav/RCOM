@@ -169,13 +169,13 @@ int sendDataFrames() {
 
     while(sentBlocks < app.numBlocks) {
 
-        int index = 0;
+        int index = 0; // For each block we must start at index 0
 
         buffer[index++] = C_DATA;
         buffer[index++] = sentBlocks % 255; //sequence number
 
-
-        nRead = read(app.fd, dataBuffer, BLOCK_SIZE); //read block from file
+        // Read block from file
+        nRead = read(app.fd, dataBuffer, BLOCK_SIZE); 
         if (nRead < 0) {
           perror("read error (sendDataPackets).\n");
           exit(-1);
@@ -184,15 +184,17 @@ int sendDataFrames() {
         buffer[index++] = nRead / 256;  //L1
         buffer[index++] = nRead % 256;  //L2
 
-        //concatenate data to buffer
+        // Concatenate data to buffer
         for (int i = 0; i <= nRead; i++)
           buffer[index + i] = dataBuffer[i];
 
-        nWrite = llwrite(app.port, buffer, nRead+5);  //send block to receiver
+        // Send data through the app.port
+        nWrite = llwrite(app.port, buffer, nRead+5);
+
         printf("nread: %d  nWrite: %d\n",nRead , nWrite);
         printf("nseq: %d  nWrite: %d\n", sentBlocks, nWrite);
-        sentBlocks++;
 
+        sentBlocks++;
     }
 
     return 0;
@@ -201,44 +203,50 @@ int sendDataFrames() {
 
 int receiveDataFrames() {
 
-    int receivedBlocks = 0;
-    char buffer[BUFFER_MAX_SIZE];
+    int receivedBlocks = 0; // Number of blocks received
+    char buffer[BUFFER_MAX_SIZE]; // Buffer to hold the data frames received
 
     while (receivedBlocks < app.numBlocks) {
+      // Read a block from app.port
       int nRead = llread(app.port, buffer);
       if (nRead < 0) {
         perror("llread error (receiveDataFrames)\n");
         exit(-1);
       }
 
-      int index = 0;
+      int index = 0; // For each block we must start at index 0
+
+      // Check if the first flag is correct
       if (buffer[index++] != C_DATA) {
         perror("Invalid frame \n");
         exit(-1);
       }
 
+      // Save sequence number and the number of octets
       int nseq = buffer[index++];
       unsigned char l2 = buffer[index++];
       unsigned char l1 = buffer[index++];
 
-      int k = 256*l2+l1;  //number of octets
+      // Calculate the number of octets
+      int numberOctets = 256*l2+l1;  //number of octets
 
-      unsigned char data[k+1];
-      for (int i = 0; i < k; i++) {
+      unsigned char data[numberOctets+1]; // Buffer to hold the data received
+      
+      // Save the data received into the data buffer
+      for (int i = 0; i < numberOctets; i++) {
         data[i] = buffer[index+i];
         printf("data %X %c\n", data[i],data[i]);
 
       }
 
+      // Save the data into a file with descriptor app.fd
+      int nWrite = write(app.fd, data, numberOctets);
 
-      int nWrite = write(app.fd, data, k);
-
-      printf("Received nseq:%d  nread:%d nwrite:%d k:%d\n", nseq, nRead, nWrite, k);
+      printf("Received nseq:%d  nread:%d nwrite:%d numberOctets:%d\n", nseq, nRead, nWrite, numberOctets);
       
       receivedBlocks++;
-
-
     }
+
     return 0;
 }
 
