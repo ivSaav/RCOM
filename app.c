@@ -99,73 +99,64 @@ int receiveControlFrame(unsigned char controlFlag){
   }
 
   int value_length = 0;
+  char type;
 
   for (int i = 1; i < buffer_length; i++) {
+    type = buffer[i];
 
-    if (buffer[i] == TLV_SIZE) {
-      // Get the number of octets read
-      value_length = (int) buffer[++i];
+    // Get the number of octets read
+    value_length = (int) buffer[++i];
 
-      i++;
+    i++;
 
-      char tmp[value_length]; // temporary array to store the string value read
+    char tmp[value_length]; // temporary array to store the string value read
 
+    switch (type)
+    {
+    case TLV_SIZE:
       // Concatenate size value into string
       for(int j= 0; j < value_length; j++){  
           sprintf(tmp+(j*2), "%02x", buffer[i]);
           i++;
       }
-
-      i--;
 
       // Save the value into the App struct
       long unsigned fileSize = strtoul(tmp, NULL, 16);
       app.fileSize = (int) fileSize;
-    }
-    else if (buffer[i] == TLV_FILENAME) {
-        // Get the number of octets read
-        value_length = (int) buffer[++i];
+      
+      break;
 
-        i++;
-
-        char tmp_[value_length]; // temporary array to store the string value read
-
-        // Concatenate size value into string
+    case TLV_FILENAME:
+      // Concatenate size value into string
         for (int j = 0; j < value_length; j++) {
-          tmp_[j] = (char) buffer[i];
+          tmp[j] = (char) buffer[i];
           i++;
         }
-        tmp_[value_length] = '\0';
-
-        i--;
+        tmp[value_length] = '\0';
 
         // Save the filename in the app struct
         app.filename = (char*) malloc(value_length);
         memset(app.filename, '\0', value_length+1);
-        sprintf(app.filename, "%s", tmp_);
+        sprintf(app.filename, "%s", tmp);
+        
+      break;
 
-    }
-    else if (buffer[i] == TLV_BLOCK) {
-      // Get the number of octets read
-      value_length = (int) buffer[++i];
-
-      i++;
-
-      char tmp[value_length]; // temporary array to store the string value read
-      
+    case TLV_BLOCK:
       // Concatenate size value into string
       for(int j= 0; j < value_length; j++){  
           sprintf(tmp+(j*2), "%02x", buffer[i]);
           i++;
       }
-      i--;
-
       // Save the number of blocks into the struct
       long unsigned blocks = strtoul(tmp, NULL, 16);
       app.numBlocks = (int) blocks;
-    }
-  }
 
+      break;
+
+    }
+
+    i--;
+  }
   return 0;
 }
 
