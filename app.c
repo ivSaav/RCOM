@@ -191,8 +191,7 @@ int sendDataFrames() {
         // Send data through the app.port
         nWrite = llwrite(app.port, buffer, nRead+5);
 
-        printf("nread: %d  nWrite: %d\n",nRead , nWrite);
-        printf("nseq: %d  nWrite: %d\n", sentBlocks, nWrite);
+        printf("Sent nseq: %d  nWrite: %d\n", sentBlocks, nWrite);
 
         sentBlocks++;
     }
@@ -204,7 +203,7 @@ int sendDataFrames() {
 int receiveDataFrames() {
 
     int receivedBlocks = 0; // Number of blocks received
-    char buffer[BUFFER_MAX_SIZE]; // Buffer to hold the data frames received
+    char buffer[BUFFER_MAX_SIZE];
 
     while (receivedBlocks < app.numBlocks) {
       // Read a block from app.port
@@ -301,45 +300,11 @@ int main(int argc, char **argv) {
       exit(-1);
     }
 
-    int portfd, c, res;
-    struct termios oldtio,newtio;
-
-    /*
-      Open serial port device for reading and writing and not as controlling tty
-      because we don't want to get killed if linenoise sends CTRL-C.
-    */
-
-    portfd = open(argv[1], O_RDWR | O_NOCTTY);
-    if (portfd <0) { perror(argv[1]); exit(-1); }
-
-    app.port = portfd;
-
-    // Save current port settings
-    if (tcgetattr(portfd,&oldtio) == -1) {
-      perror("tcgetattr");
-      exit(-1);
+    app.port = initLinkLayer(argv[1], app.status);
+    if (app.port < 0) {
+      perror("initLinkLayer.");
+      exit(1);
     }
-
-    // Set new flags to be used in the port
-    bzero(&newtio, sizeof(newtio));
-    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-    newtio.c_iflag = IGNPAR;
-    newtio.c_oflag = 0;
-
-    /* set input mode (non-canonical, no echo,...) */
-    newtio.c_lflag = 0;
-
-    newtio.c_cc[VTIME]    = 3;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 0;   /* blocking read until 5 chars received */
-
-    tcflush(portfd, TCIOFLUSH);
-
-    if (tcsetattr(portfd,TCSANOW,&newtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
-
-    printf("New termios structure set\n");
 
     if (app.status == EMT_STAT) { //Transmitter
 
@@ -363,23 +328,7 @@ int main(int argc, char **argv) {
             exit(-1);
         }
 
-        // Close the connection
-        if (llclose(app.port, EMT_STAT)) {
-          perror("Couldn't close conection\n");
-          exit(-1);
-        }
-
-        // Restore the port settings
-        if ( tcsetattr(app.port,TCSANOW,&oldtio) == -1) {
-          perror("tcsetattr");
-          exit(-1);
-        }
-
-        sleep(1);
-
-        // Close all the open files
-        close(app.fd);
-        close(app.port);
+      //sleep(1);
 
     }
     else {  // Receiver
@@ -398,7 +347,6 @@ int main(int argc, char **argv) {
 
         printf("filename: %s size:%d blocks:%d\n", app.filename, app.fileSize, app.numBlocks);
 
-
         // Open file where we save the information received
         int fd = open("p.gif", O_CREAT|O_WRONLY | O_TRUNC, S_IRWXU);
         if (fd < 0) { perror(app.filename); exit(-1); }
@@ -410,24 +358,17 @@ int main(int argc, char **argv) {
             perror("sendDataFrames\n");
             exit(-1);
         }
-
-        // Close the connection
-        if (llclose(app.port, RCV_STAT)) {
-          perror("Couldn't close connection\n");
-          exit(1);
-        }
-
-        // Restore the port settings
-        if ( tcsetattr(app.port,TCSANOW,&oldtio) == -1) {
-          perror("tcsetattr");
-          exit(-1);
-        }
-
-        // Close all the open files
-        close(app.fd);
-        close(app.port);
-
     }
 
-   return 0;
+  // Close the connection
+  if (llclose(app.port)) {
+    perror("Couldn't close connection\n");
+    exit(1);
+  }
+
+  // Close all the open files
+  close(app.fd);
+  close(app.port);
+
+  return 0;
 }
