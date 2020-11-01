@@ -235,8 +235,6 @@ int receiveDataFrames() {
       // Save the data received into the data buffer
       for (int i = 0; i < numberOctets; i++) {
         data[i] = buffer[index+i];
-        printf("data %X %c\n", data[i],data[i]);
-
       }
 
       // Save the data into a file with descriptor app.fd
@@ -244,7 +242,9 @@ int receiveDataFrames() {
 
       printf("Received nseq:%d  nread:%d nwrite:%d numberOctets:%d\n", nseq, nRead, nWrite, numberOctets);
       
-      receivedBlocks++;
+      if (nseq == receivedBlocks) { //if the packet is not duplicate
+       receivedBlocks++;
+      }
     }
 
     return 0;
