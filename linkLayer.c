@@ -73,8 +73,6 @@ int initLinkLayer(char *port, int status) {
 int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedControl){
   unsigned char buffer[5] = {DELIM, flag, expectedControl,  flag^expectedControl, DELIM};
 
-  //printf("expected %X %X\n", flag, expectedControl);
-
   int res = write(fd,buffer,BUF_SIZE);
 
   return res;
@@ -84,8 +82,6 @@ int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedContro
 int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedControl){
 
    enum state st = START;
-
-  //printf("expected %X %X\n", expectedFlag, expectedControl);
 
   //get acknowledgement
   int n = 0;
@@ -97,16 +93,13 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
   setAlarmFlags();
 
   unsigned char bcc = 0;
-  //printf("//////////\n");
+
   while (!(end || ll.timeout)) {
 
     //read field sent by writenoncanonical
     unsigned char byte;
     int res = read(fd,&byte,1);
     buf[i] = byte;
-
-    //printf("st: %d  buf: %X\n", st, buf[i]);
-
 
     switch (st) {
 
