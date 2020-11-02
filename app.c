@@ -351,7 +351,7 @@ int main(int argc, char **argv) {
         printf("filename: %s size:%d blocks:%d\n", app.filename, app.fileSize, app.numBlocks);
 
         // Open file where we save the information received
-        int fd = open("p.gif", O_CREAT|O_WRONLY | O_TRUNC, S_IRWXU);
+        int fd = open(app.filename, O_CREAT|O_WRONLY | O_TRUNC, S_IRWXU);
         if (fd < 0) { perror(app.filename); exit(-1); }
 
         app.fd = fd;  // Assign file fd to app struct
