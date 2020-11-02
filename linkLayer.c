@@ -21,10 +21,7 @@ void setAlarmFlags() {
   ll.send = true;
 }
 
-/*
-  Open serial port device for reading and writing and not as controlling tty
-  because we don't want to get killed if linenoise sends CTRL-C.
-*/
+
 int initLinkLayer(char *port, int status) {
   
   setAlarmFlags();
@@ -69,7 +66,7 @@ int initLinkLayer(char *port, int status) {
 
 }
 
-//send supervision/numbered frame
+
 int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedControl){
   unsigned char buffer[5] = {DELIM, flag, expectedControl,  flag^expectedControl, DELIM};
 
@@ -78,12 +75,12 @@ int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedContro
   return res;
 }
 
-//receive supervision/numbered frame
+
 int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedControl){
 
    enum state st = START;
 
-  //get acknowledgement
+  // Get acknowledgement
   int n = 0;
   unsigned char buf[6];
 
@@ -96,7 +93,7 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
 
   while (!(end || ll.timeout)) {
 
-    //read field sent by writenoncanonical
+    // Read field sent by writenoncanonical
     unsigned char byte;
     int res = read(fd,&byte,1);
     buf[i] = byte;
@@ -167,7 +164,7 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
       case BCC_OK:
 
         if (buf[i] == DELIM) {
-          st = START; //for further use
+          st = START; // For further use
           return 0;
         }
         else {
@@ -187,13 +184,13 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
 int llopen(int fd, int status) {
 
     switch (status) {
-        case EMT_STAT: //emissor
+        case EMT_STAT: // Emissor
             if (EmtSetupConnection(fd)) {
                 perror("Couldn't setup connection.\n");
                 exit(1);
             }
             break;
-        case RCV_STAT:  //receiver
+        case RCV_STAT:  // Receiver
             if (RcvSetupConnection(fd)){
                 perror("Couldn't setup connection.\n");
                 exit(2);
@@ -207,20 +204,20 @@ int llopen(int fd, int status) {
     return 0;
 }
 
-//setup connection from writer
+
 int EmtSetupConnection(int fd) {
 
      while(ll.send){
 
         int res = 0;
-        //send set frame
+        // Send set frame
         unsigned char buffer[5] = {DELIM, A_EM, SET,  A_EM^SET, DELIM};
         res = write(fd,buffer,BUF_SIZE);
 
         alarm(3);
 
-        if (!receiveFrame(fd, A_EM, UA)) { //receive acknowledgement from receiver
-            return 0; //success
+        if (!receiveFrame(fd, A_EM, UA)) { // Receive acknowledgement from receiver
+            return 0; // Success
         }
     else {
         printf("Invalid acknowledgement.\n");
@@ -228,10 +225,10 @@ int EmtSetupConnection(int fd) {
 
   }
 
-    return 1; //failure
+    return 1; // Failure
 }
 
-//setup connection from receiver
+
 int RcvSetupConnection(int fd) {
 
     int n = 0;
@@ -240,7 +237,7 @@ int RcvSetupConnection(int fd) {
     int i = 0;
     bool end = false;
 
-    if (receiveFrame(fd, A_EM, SET)) { //receive SET frame from writer
+    if (receiveFrame(fd, A_EM, SET)) { // Receive SET frame from writer
         perror("Received invalid frame.\n");
         exit(1);
     }
@@ -281,13 +278,14 @@ int EmtCloseConnection(int fd) {
   while(ll.send && (ll.attempts <= 3)){
 
       int res = 0;
-      //send set frame
+
+      // Send set frame
       unsigned char buffer[5] = {DELIM, A_EM, DISC,  A_EM^DISC, DELIM};
       res = write(fd,buffer,BUF_SIZE);
 
       alarm(3);
 
-      if (receiveFrame(fd, A_RC, DISC)) { //receive DISC from receiver
+      if (receiveFrame(fd, A_RC, DISC)) { // Receive DISC from receiver
         printf("Invalid acknowledgement.\n");
       }
 
@@ -313,12 +311,13 @@ int RcvCloseConnection(int fd) {
 
     alarm(3);
 
-    if (receiveFrame(fd, A_EM, DISC)) { //receive DISC from emissor
+    if (receiveFrame(fd, A_EM, DISC)) { // Receive DISC from emissor
         printf("Invalid frame (llclose).\n");
     }
 
     int res = 0;
-    //send DISC frame
+
+    // Send DISC frame
     unsigned char buffer[5] = {DELIM, A_RC, DISC,  A_RC^DISC, DELIM};
     res = write(fd,buffer,BUF_SIZE);
     if (res <= 0) {
@@ -328,9 +327,9 @@ int RcvCloseConnection(int fd) {
 
     alarm(3);
 
-    if (!receiveFrame(fd, A_RC, UA)) { //receive UA from emissor
+    if (!receiveFrame(fd, A_RC, UA)) { // Receive UA from emissor
         printf("Connection closed\n");
-        return 0; //success
+        return 0; // Success
     }
     else {
       printf("Invalid frame (llclose).\n");
@@ -346,10 +345,10 @@ int RcvCloseConnection(int fd) {
 
 unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int last_data_index) {
 
-  if (i >= last_data_index-1) {  //reached last element
+  if (i >= last_data_index-1) {  // Reached last element
     return first;
   }
-  //printf("first %X i %d  buff %c\n", first, i, buffer[i+1]);
+
   first = first^buffer[i+1];
 
   return RcvCalcBcc2(buffer, ++i, first, last_data_index);
@@ -357,12 +356,12 @@ unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int
 
 unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first, int size) {
 
-  if (i >= size-2) {  //reached last element
+  if (i >= size-2) {  // Reached last element
     return first;
   }
   
-  //printf("first %X i %d  buff %c\n", first, i, buffer[i+1]);
   first = first^buffer[i+1];
+
   return calcBcc2(buffer, ++i, first, size);
 }
 
@@ -394,7 +393,7 @@ int llwrite(int fd, unsigned char *data, int size) {
   bool rcvRR = false;
   int numTries = 0;
   setAlarmFlags();
-  static bool ns_set = false; //S starts at 0
+  static bool ns_set = false; // S starts at 0
 
   bool sentData = false;
 
@@ -405,15 +404,16 @@ int llwrite(int fd, unsigned char *data, int size) {
     unsigned char stuffed[MAX_SIZE]; 
     int ndata = stuffBytes(data, size, stuffed);
     
-    //intialize data frame header
+    // Intialize data frame header
     unsigned char buffer[ndata + 6];
     buffer[0] = DELIM;
     buffer[1] = A_EM;
-    buffer[2] = ns_set ? 0x40 : 0x00; //Control flag: S=1 --> 0x40 ; S=0 --> 0x00
+    buffer[2] = ns_set ? 0x40 : 0x00; // Control flag: S=1 --> 0x40 ; S=0 --> 0x00
     buffer[3] = buffer[1]^buffer[2];
 
     int buffPos = 4;
-    for (int i = 0; i < ndata; i++) {  //concatenating stuffed data buffer
+    // Concatenating stuffed data buffer
+    for (int i = 0; i < ndata; i++) {  
         buffer[i+buffPos] = stuffed[i];
     }
 
@@ -422,17 +422,17 @@ int llwrite(int fd, unsigned char *data, int size) {
     buffer[++buffPos] = DELIM;
 
      
-    //send data
+    // Send data
     int nbytes = ndata + 6;
 
     int n = write(fd, buffer, nbytes);
 
     alarm(3);
 
-    //receive acknowledgement from receiver
-    if (!receiveFrame(fd, A_EM, ns_set ? (0x0F & RR) : RR)) { //if S=0 expect to receive S=1
+    // Receive acknowledgement from receiver
+    if (!receiveFrame(fd, A_EM, ns_set ? (0x0F & RR) : RR)) { // If S=0 expect to receive S=1
         ns_set = !ns_set;
-        return n; //success
+        return n; // Success
     }
     else {
       printf("Invalid acknowledment\n");
@@ -454,15 +454,15 @@ int llread(int fd, unsigned char * buffer){
 
   static bool nr_set = 1;
 
-  int index = 0; //index for return buffer
+  int index = 0; // Index for return buffer
   while (true) {
-    //read field sent by writenoncanonical
+    // Read field sent by writenoncanonical
     res = read(fd,&byte,1);
     ll.frame[i] = byte;
 
     switch (st) {
 
-      case START: //validate header
+      case START: // Validate header
 
         if (ll.frame[i] == DELIM) {
           st = FLAG_RCV;
@@ -488,7 +488,7 @@ int llread(int fd, unsigned char * buffer){
       case A_RCV:
 
         if (ll.frame[i] == C_0 || ll.frame[i] == C_1) {
-          nr_set = (ll.frame[i] == C_1); //alternate between 1 and 0
+          nr_set = (ll.frame[i] == C_1); // Alternate between 1 and 0
           st = C_RCV;
           i++;
         }
@@ -520,27 +520,24 @@ int llread(int fd, unsigned char * buffer){
         }
         break;
 
-      case BCC_OK:  //start reading data
+      case BCC_OK:  // Start reading data
 
-        if (ll.frame[i] == DELIM) { //reached end of frame
+        if (ll.frame[i] == DELIM) { // Reached end of frame
           data_received--;
 
           unsigned char bcc2 = RcvCalcBcc2(ll.frame, 4, ll.frame[4], 4 + data_received);  
 
-          //printf("bcc %X %X\n", bcc2, frame[i-1]);
+          if(ll.frame[i-1] == bcc2){    // Accepted frame
 
-          if(ll.frame[i-1] == bcc2){    //accepted frame  TODO destuffbytes
-
-            if (sendAcknowledgement(fd, A_EM,  nr_set ? (0x0F & RR) : RR) <= 0) { //if S=1 send S=0
+            if (sendAcknowledgement(fd, A_EM,  nr_set ? (0x0F & RR) : RR) <= 0) { // If S=1 send S=0
               perror("Couldn't send acknowledgement.\n");
               exit(-1);
             }
 
-            //printf("////////\n");
-            st = START; //for further use
+            st = START; // For further use
             return i;
           }
-          else{   //rejected frame
+          else{   // Rejected frame
 
             if (sendAcknowledgement(fd, A_EM, nr_set ? (0x0F & RJ) : RJ) <= 0) {
                 perror("Couldn't send acknowledgement.\n");
@@ -554,7 +551,7 @@ int llread(int fd, unsigned char * buffer){
             data_received = 0;
           }
         }
-        else {              //add byte to frame
+        else {              // Add byte to frame
           if(ll.frame[i] == 0x7d){
             st = DESTUFFING;
           }
