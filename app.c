@@ -256,7 +256,8 @@ int receiveDataFrames() {
 
 int main(int argc, char **argv) {
 
-    if ((strcmp("/dev/ttyS0", argv[1])!=0) && (strcmp("/dev/ttyS1", argv[1])!=0)){
+    if ((strcmp("/dev/ttyS0", argv[1])!=0) && (strcmp("/dev/ttyS1", argv[1])!=0) &&
+        (strcmp("/dev/ttyS4", argv[1])!=0) && (strcmp("/dev/ttyS5", argv[1])!=0)){
           printf("Usage:\t serialport filename: app /dev/ttyS0 filename\n");
           exit(-1);
     }
