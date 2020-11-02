@@ -34,8 +34,8 @@
 
 #define C_0   0x00      // S=0
 #define C_1   0x40      // S=1
-#define RR    0x85
-#define RJ    0x81   
+#define RR    0x85      // Receiver Ready
+#define RJ    0x81      // Reject frame
 
 #define ESC_OCT 0x7d    // Escape octet
 #define ESC_MASK 0x20   // Escape mask
@@ -43,7 +43,7 @@
 
 
 typedef struct {
-    int status;
+    int status;                     /*TRANSMITER | RECEIVER*/
     struct termios oldtio;          /*Termios struct before starting the connection*/
     unsigned int waitTime;          /*Timer value: 1 s*/
     unsigned int numTransmissions;  /*Number of tries before closing the connection*/
@@ -184,19 +184,6 @@ int RcvCloseConnection(int fd);
  * returns Bcc2 value
  */
 unsigned char  calcBcc2(unsigned char *buffer, int i, unsigned char first, int size);
-
-/*
- * Calculate the respective BCC2 of a buffer in a recursive way. This one
- * should be use in the receiver side.
- * 
- * unsigned char *buffer :- buffer with the values used to calculate bcc2.
- * int i :- integer representing the indice of the buffer to use.
- * usigned char first :- bcc2 value up until now.
- * int last_data_index :- last value to be read, used to know when to stop.
- * 
- * returns Bcc2 value
- */
-unsigned char RcvCalcBcc2(unsigned char *buffer, int i, unsigned char first, int last_data_index);
 
 /*
  * Stuffs the data buffer so the data get worngly recognized as a flag.

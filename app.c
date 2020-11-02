@@ -178,7 +178,7 @@ int sendDataFrames() {
         nRead = read(app.fd, dataBuffer, BLOCK_SIZE); 
         if (nRead < 0) {
           perror("read error (sendDataPackets).\n");
-          exit(-1);
+          return -1;
         }
 
         buffer[index++] = nRead / 256;  //L1
@@ -190,7 +190,10 @@ int sendDataFrames() {
 
         // Send data through the app.port
         nWrite = llwrite(app.port, buffer, nRead+5);
-
+        if (nWrite < 0) {
+          perror("llwrite sendDataFrames");
+          return -1;
+        }
         printf("Sent nseq: %d  nWrite: %d\n", sentBlocks, nWrite);
 
         sentBlocks++;
@@ -210,7 +213,7 @@ int receiveDataFrames() {
       int nRead = llread(app.port, buffer);
       if (nRead < 0) {
         perror("llread error (receiveDataFrames)\n");
-        exit(-1);
+        return -1;
       }
 
       int index = 0; // For each block we must start at index 0
@@ -218,7 +221,7 @@ int receiveDataFrames() {
       // Check if the first flag is correct
       if (buffer[index++] != C_DATA) {
         perror("Invalid frame \n");
-        exit(-1);
+        continue;
       }
 
       // Save sequence number and the number of octets
@@ -253,10 +256,10 @@ int receiveDataFrames() {
 
 int main(int argc, char **argv) {
 
-    // if ((strcmp("/dev/ttyS0", argv[1])!=0) && (strcmp("/dev/ttyS1", argv[1])!=0)){
-    //       printf("Usage:\t serialport filename: app /dev/ttyS0 filename\n");
-    //       exit(-1);
-    // }
+    if ((strcmp("/dev/ttyS0", argv[1])!=0) && (strcmp("/dev/ttyS1", argv[1])!=0)){
+          printf("Usage:\t serialport filename: app /dev/ttyS0 filename\n");
+          exit(-1);
+    }
 
     if (argc == 2) {  //Receiver
       app.status = RCV_STAT;
