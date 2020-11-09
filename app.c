@@ -205,7 +205,7 @@ int sendDataFrames() {
 
 int receiveDataFrames() {
 
-    int receivedBlocks = 0; // Number of blocks received
+    unsigned char receivedBlocks = 0; // Number of blocks received
     char buffer[BUFFER_MAX_SIZE];
 
     while (receivedBlocks < app.numBlocks) {
@@ -225,7 +225,7 @@ int receiveDataFrames() {
       }
 
       // Save sequence number and the number of octets
-      int nseq = buffer[index++];
+      unsigned char nseq = buffer[index++];
       unsigned char l2 = buffer[index++];
       unsigned char l1 = buffer[index++];
 
@@ -256,11 +256,11 @@ int receiveDataFrames() {
 
 int main(int argc, char **argv) {
 
-    if ((strcmp("/dev/ttyS0", argv[1])!=0) && (strcmp("/dev/ttyS1", argv[1])!=0) &&
-        (strcmp("/dev/ttyS4", argv[1])!=0) && (strcmp("/dev/ttyS5", argv[1])!=0)){
-          printf("Usage:\t serialport filename: app /dev/ttyS0 filename\n");
-          exit(-1);
-    }
+    // if ((strcmp("/dev/ttyS0", argv[1])!=0) && (strcmp("/dev/ttyS1", argv[1])!=0) &&
+    //     (strcmp("/dev/ttyS4", argv[1])!=0) && (strcmp("/dev/ttyS5", argv[1])!=0)){
+    //       printf("Usage:\t serialport filename: app /dev/ttyS0 filename\n");
+    //       exit(-1);
+    // }
 
     if (argc == 2) {  //Receiver
       app.status = RCV_STAT;

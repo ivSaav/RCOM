@@ -396,8 +396,10 @@ int llwrite(int fd, unsigned char *data, int size) {
     
     unsigned char bcc2 = calcBcc2(data, 0, data[0], size-1);
 
+    data[size-1] = bcc2; //add bcc2 to last position
+
     unsigned char stuffed[MAX_SIZE]; 
-    int ndata = stuffBytes(data, size, stuffed);
+    int ndata = stuffBytes(data, size+1, stuffed);
     
     // Intialize data frame header
     unsigned char buffer[ndata + 6];
@@ -413,8 +415,8 @@ int llwrite(int fd, unsigned char *data, int size) {
     }
 
     buffPos += ndata;
-    buffer[buffPos] = bcc2;
-    buffer[++buffPos] = DELIM;
+
+    buffer[buffPos] = DELIM;
 
      
     // Send data
