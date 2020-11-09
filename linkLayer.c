@@ -5,6 +5,7 @@ static linkLayer ll;
 void signalHandler(){
   printf("Timeout.\n");
   ll.timeout = true;
+  ll.st->timeouts++;
 
   if(ll.attempts >= ll.numTransmissions){
     ll.send = false;
@@ -20,6 +21,19 @@ void setAlarmFlags() {
   ll.timeout = false;
 }
 
+void printStats() {
+
+  printf("\n----------STATS----------\n");
+  printf("receivedFrames: %d\n", ll.st->receivedFrames);
+  printf("sentFrames: %d\n", ll.st->sentFrames);
+  printf("timeouts: %d\n", ll.st->timeouts);
+  printf("rcvPosAck: %d\n", ll.st->rcvPosAck);
+  printf("rcvNegAck: %d\n", ll.st->rcvNegAck);
+  printf("sentPosAck: %d\n", ll.st->sentPosAck);
+  printf("sentNegAck: %d\n", ll.st->sentNegAck);
+
+}
+
 
 int initLinkLayer(char *port, int status) {
   
@@ -29,6 +43,15 @@ int initLinkLayer(char *port, int status) {
   ll.numTransmissions = MAX_ATTEMPTS;
   ll.status = status;
   ll.send = true;
+
+  ll.st = (stats*) malloc(sizeof(stats));
+  ll.st->sentFrames = 0;
+  ll.st->receivedFrames = 0;
+  ll.st->timeouts = 0;
+  ll.st->rcvPosAck = 0;
+  ll.st->rcvNegAck = 0;
+  ll.st->sentPosAck = 0;
+  ll.st->sentNegAck = 0;
 
   int portfd;
   struct termios newtio;
@@ -71,6 +94,13 @@ int sendAcknowledgement(int fd, unsigned char flag, unsigned char expectedContro
   unsigned char buffer[5] = {DELIM, flag, expectedControl,  flag^expectedControl, DELIM};
 
   int res = write(fd,buffer,BUF_SIZE);
+
+  if ((expectedControl == RJ) || (expectedControl == RJ & 0x0F)) {
+    ll.st->sentNegAck++;
+  }
+  else{
+    ll.st->sentPosAck++;
+  }
 
   return res;
 }
@@ -126,10 +156,15 @@ int receiveFrame(int fd, unsigned char expectedFlag, unsigned char expectedContr
       case A_RCV:
 
         if (buf[i] == expectedControl) {
+
+          if (expectedControl != SET && expectedControl != DISC)
+            ll.st->rcvPosAck++;
+
           st = C_RCV;
           i++;
         }
-        else if (buf[i] == RJ) {
+        else if ((buf[i] == RJ) || (buf[i] == RJ & 0x0F)) {
+          ll.st->rcvNegAck++;
           st = START;
           return 1;
         }
@@ -427,6 +462,7 @@ int llwrite(int fd, unsigned char *data, int size) {
 
     // Receive acknowledgement from receiver
     if (!receiveFrame(fd, A_EM, ns_set ? (0x0F & RR) : RR)) { // If S=0 expect to receive S=1
+        ll.st->sentFrames++;
         ns_set = !ns_set;
         return n; // Success
     }
@@ -532,6 +568,7 @@ int llread(int fd, unsigned char * buffer){
             }
 
             st = START; // For further use
+            ll.st->receivedFrames++;
             return i;
           }
           else{   // Rejected frame

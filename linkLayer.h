@@ -40,7 +40,15 @@
 #define ESC_OCT 0x7d    // Escape octet
 #define ESC_MASK 0x20   // Escape mask
 
-
+typedef struct {
+    unsigned int sentFrames;
+    unsigned int receivedFrames;
+    unsigned int timeouts;
+    unsigned int rcvPosAck;
+    unsigned int rcvNegAck;
+    unsigned int sentPosAck;
+    unsigned int sentNegAck;
+} stats;
 
 typedef struct {
     int status;                     /*TRANSMITER | RECEIVER*/
@@ -51,10 +59,12 @@ typedef struct {
     bool timeout;                   /*Flag to check if a timeout occured*/
     bool send;                      /*Flag to check if it is sending information*/
     unsigned char frame[MAX_SIZE];  /*Buffer to hold the frame receveid or to be sent*/
+
+    stats* st;
 } linkLayer;
 
 enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DESTUFFING};
-
+void printStats();
 /*
  * Open serial port device for reading and writing and not as controlling tty
  * because we don't want to get killed if linenoise sends CTRL-C.

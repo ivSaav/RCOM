@@ -72,7 +72,7 @@ int sendControlFrame(unsigned char controlFlag) {
     exit(-1);
   }
 
-  printf("Wrote %d bytes\n", n-4);
+  printf("Sent Control Frame: %d bytes\n", n-4);
 
   return 0;
 
@@ -242,7 +242,7 @@ int receiveDataFrames() {
       // Save the data into a file with descriptor app.fd
       int nWrite = write(app.fd, data, numberOctets);
 
-      printf("Received nseq:%d  nread:%d nwrite:%d numberOctets:%d\n", nseq, nRead, nWrite, numberOctets);
+      printf("Received nseq:%d  nread:%d \n", nseq, nRead);
       
       if (nseq == receivedBlocks) { //if the packet is not duplicate
        receivedBlocks++;
@@ -373,6 +373,8 @@ int main(int argc, char **argv) {
   // Close all the open files
   close(app.fd);
   close(app.port);
+
+  printStats();
 
   return 0;
 }
