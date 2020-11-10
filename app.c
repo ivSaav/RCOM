@@ -72,7 +72,7 @@ int sendControlFrame(unsigned char controlFlag) {
     exit(-1);
   }
 
-  printf("Wrote %d bytes\n", n-4);
+  printf("Sent Control Frame: %d bytes\n", n-4);
 
   return 0;
 
@@ -84,7 +84,9 @@ int receiveControlFrame(unsigned char controlFlag){
   unsigned char * buffer = (unsigned char *) malloc(BUFFER_MAX_SIZE * sizeof(char)); // Buffer for control frame
   
   // Read the control frame
-  int bufferLength = llread(app.port, buffer);
+  int bufferLength = llread(app.port, buffer, false);
+    printf("here\n");
+
   bufferLength = bufferLength - 4;  //remove control header from buffer size
 
   if(bufferLength < 0){
@@ -205,12 +207,13 @@ int sendDataFrames() {
 
 int receiveDataFrames() {
 
-    int receivedBlocks = 0; // Number of blocks received
+    unsigned char receivedBlocks = 0; // Number of blocks received
     char buffer[BUFFER_MAX_SIZE];
+	srand(time(NULL));
 
     while (receivedBlocks < app.numBlocks) {
       // Read a block from app.port
-      int nRead = llread(app.port, buffer);
+      int nRead = llread(app.port, buffer, true);
       if (nRead < 0) {
         perror("llread error (receiveDataFrames)\n");
         return -1;
@@ -225,7 +228,7 @@ int receiveDataFrames() {
       }
 
       // Save sequence number and the number of octets
-      int nseq = buffer[index++];
+      unsigned char nseq = buffer[index++];
       unsigned char l2 = buffer[index++];
       unsigned char l1 = buffer[index++];
 
@@ -242,7 +245,7 @@ int receiveDataFrames() {
       // Save the data into a file with descriptor app.fd
       int nWrite = write(app.fd, data, numberOctets);
 
-      printf("Received nseq:%d  nread:%d nwrite:%d numberOctets:%d\n", nseq, nRead, nWrite, numberOctets);
+      printf("Received nseq:%d  nread:%d \n", nseq, nRead);
       
       if (nseq == receivedBlocks) { //if the packet is not duplicate
        receivedBlocks++;
@@ -256,11 +259,11 @@ int receiveDataFrames() {
 
 int main(int argc, char **argv) {
 
-    if ((strcmp("/dev/ttyS0", argv[1])!=0) && (strcmp("/dev/ttyS1", argv[1])!=0) &&
-        (strcmp("/dev/ttyS4", argv[1])!=0) && (strcmp("/dev/ttyS5", argv[1])!=0)){
-          printf("Usage:\t serialport filename: app /dev/ttyS0 filename\n");
-          exit(-1);
-    }
+    // if ((strcmp("/dev/ttyS0", argv[1])!=0) && (strcmp("/dev/ttyS1", argv[1])!=0) &&
+    //     (strcmp("/dev/ttyS4", argv[1])!=0) && (strcmp("/dev/ttyS5", argv[1])!=0)){
+    //       printf("Usage:\t serialport filename: app /dev/ttyS0 filename\n");
+    //       exit(-1);
+    // }
 
     if (argc == 2) {  //Receiver
       app.status = RCV_STAT;
@@ -373,6 +376,8 @@ int main(int argc, char **argv) {
   // Close all the open files
   close(app.fd);
   close(app.port);
+
+  printStats();
 
   return 0;
 }

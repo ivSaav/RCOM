@@ -12,7 +12,7 @@
 #define TLV_BLOCK       0x02
 
 #define BUFFER_MAX_SIZE   1024
-#define BLOCK_SIZE      512
+#define BLOCK_SIZE      650
 
 typedef struct {
     int fd;     //file descriptor of image

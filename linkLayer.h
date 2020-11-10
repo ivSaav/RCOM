@@ -9,13 +9,16 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <string.h>
+#include <time.h>
 #include <stdbool.h>
+
+#define PROB    0.05
 
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 
 #define MAX_ATTEMPTS 3  // Number of maximum attemps to send a frame
-#define WAIT_TIME    1  // Time to wait before resending in seconds
+#define WAIT_TIME    1 // Time to wait before resending in seconds
 
 #define MAX_SIZE 1024   // Maximum size of a single frame
 
@@ -40,7 +43,18 @@
 #define ESC_OCT 0x7d    // Escape octet
 #define ESC_MASK 0x20   // Escape mask
 
-
+typedef struct {
+    unsigned int sentFrames;
+    unsigned int receivedFrames;
+    unsigned int timeouts;
+    unsigned int rcvPosAck;
+    unsigned int rcvNegAck;
+    unsigned int sentPosAck;
+    unsigned int sentNegAck;
+    int cnt;
+    double tprops[512];
+    struct timespec start, end;
+} stats;
 
 typedef struct {
     int status;                     /*TRANSMITER | RECEIVER*/
@@ -51,7 +65,11 @@ typedef struct {
     bool timeout;                   /*Flag to check if a timeout occured*/
     bool send;                      /*Flag to check if it is sending information*/
     unsigned char frame[MAX_SIZE];  /*Buffer to hold the frame receveid or to be sent*/
+    stats *st;
+
 } linkLayer;
+
+void printStats();
 
 enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DESTUFFING};
 
@@ -108,7 +126,7 @@ int llopen(int fd, int status);
  * returns the lenght of the buffer (number of characters read)
  *  or a negative value in case of error.
  */
-int llread(int fd, unsigned char *buffer);
+int llread(int fd, unsigned char *buffer, bool generate);
 
 /*
  * Function to be used in the application level to send frames.
