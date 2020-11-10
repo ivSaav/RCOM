@@ -21,19 +21,6 @@ void setAlarmFlags() {
   ll.timeout = false;
 }
 
-void printStats() {
-
-  printf("\n----------STATS----------\n");
-  printf("receivedFrames: %d\n", ll.st->receivedFrames);
-  printf("sentFrames: %d\n", ll.st->sentFrames);
-  printf("timeouts: %d\n", ll.st->timeouts);
-  printf("rcvPosAck: %d\n", ll.st->rcvPosAck);
-  printf("rcvNegAck: %d\n", ll.st->rcvNegAck);
-  printf("sentPosAck: %d\n", ll.st->sentPosAck);
-  printf("sentNegAck: %d\n", ll.st->sentNegAck);
-
-}
-
 
 int initLinkLayer(char *port, int status) {
   
@@ -52,6 +39,7 @@ int initLinkLayer(char *port, int status) {
   ll.st->rcvNegAck = 0;
   ll.st->sentPosAck = 0;
   ll.st->sentNegAck = 0;
+  ll.st->cnt = 0;
 
   int portfd;
   struct termios newtio;
@@ -311,6 +299,7 @@ int llclose(int fd) {
     return -1;
   }
 
+
   return ret;
 
 }
@@ -481,6 +470,8 @@ int llread(int fd, unsigned char * buffer){
 
   enum state st = START;
 
+  timespec_get(&ll.st->start, TIME_UTC);
+
   unsigned char byte;
   int i = 0, res, data_received = 0;
   unsigned char bcc = 0;
@@ -488,11 +479,15 @@ int llread(int fd, unsigned char * buffer){
   static bool nr_set = 1;
 
   int index = 0; // Index for return buffer
+ 
+
+
   while (true) {
     // Read field sent by writenoncanonical
     res = read(fd,&byte,1);
     ll.frame[i] = byte;
 
+    
     switch (st) {
 
       case START: // Validate header
@@ -558,14 +553,30 @@ int llread(int fd, unsigned char * buffer){
         if (ll.frame[i] == DELIM) { // Reached end of frame
           data_received--;
 
-          unsigned char bcc2 = calcBcc2(ll.frame, 4, ll.frame[4], 4 + data_received);  
+          unsigned char bcc2 = calcBcc2(ll.frame, 4, ll.frame[4], 4 + data_received); 
+	
+    double failHead, failData;
+         
 
-          if(ll.frame[i-1] == bcc2){    // Accepted frame
+
+   		
+          failHead = (double)random()/RAND_MAX;
+          failData = (double)random()/RAND_MAX;
+   printf("data %f head %f\n", failHead, failData); 
+
+          if(ll.frame[i-1] == bcc2 && !(failData < PROB) && !(failHead < PROB)){    // Accepted frame
 
             if (sendAcknowledgement(fd, A_EM,  nr_set ? (0x0F & RR) : RR) <= 0) { // If S=1 send S=0
               perror("Couldn't send acknowledgement.\n");
               return -1;
             }
+
+            timespec_get(&ll.st->end, TIME_UTC);
+
+            double time_spent = (ll.st->end.tv_sec - ll.st->start.tv_sec) +
+						(ll.st->end.tv_nsec - ll.st->start.tv_nsec) / 1000000000.0;
+            ll.st->tprops[ll.st->cnt++] = time_spent;
+            printf("tprop %lf \n", time_spent);
 
             st = START; // For further use
             ll.st->receivedFrames++;
@@ -577,6 +588,7 @@ int llread(int fd, unsigned char * buffer){
                 perror("Couldn't send acknowledgement.\n");
                 return -1;
               }
+        
 
             printf("Rejected data packet.\n");
 
@@ -618,4 +630,17 @@ int llread(int fd, unsigned char * buffer){
     }
 
     return -1;
+}
+
+void printStats() {
+
+  printf("\n----------STATS----------\n");
+  printf("receivedFrames: %d\n", ll.st->receivedFrames);
+  printf("sentFrames: %d\n", ll.st->sentFrames);
+  printf("timeouts: %d\n", ll.st->timeouts);
+  printf("rcvPosAck: %d\n", ll.st->rcvPosAck);
+  printf("rcvNegAck: %d\n", ll.st->rcvNegAck);
+  printf("sentPosAck: %d\n", ll.st->sentPosAck);
+  printf("sentNegAck: %d\n", ll.st->sentNegAck);
+
 }

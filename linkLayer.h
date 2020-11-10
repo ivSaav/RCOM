@@ -9,13 +9,16 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <string.h>
+#include <time.h>
 #include <stdbool.h>
+
+#define PROB    0.0001
 
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 
 #define MAX_ATTEMPTS 3  // Number of maximum attemps to send a frame
-#define WAIT_TIME    1  // Time to wait before resending in seconds
+#define WAIT_TIME    3  // Time to wait before resending in seconds
 
 #define MAX_SIZE 1024   // Maximum size of a single frame
 
@@ -48,6 +51,9 @@ typedef struct {
     unsigned int rcvNegAck;
     unsigned int sentPosAck;
     unsigned int sentNegAck;
+    int cnt;
+    double tprops[512];
+    struct timespec start, end;
 } stats;
 
 typedef struct {
@@ -59,12 +65,14 @@ typedef struct {
     bool timeout;                   /*Flag to check if a timeout occured*/
     bool send;                      /*Flag to check if it is sending information*/
     unsigned char frame[MAX_SIZE];  /*Buffer to hold the frame receveid or to be sent*/
+    stats *st;
 
-    stats* st;
 } linkLayer;
 
-enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DESTUFFING};
 void printStats();
+
+enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DESTUFFING};
+
 /*
  * Open serial port device for reading and writing and not as controlling tty
  * because we don't want to get killed if linenoise sends CTRL-C.

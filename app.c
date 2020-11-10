@@ -25,10 +25,13 @@ int intToHexa(unsigned char *ret, int value) {
     return length;
 }
 
+
+
+
+
 int sendControlFrame(unsigned char controlFlag) {
 
   unsigned char control[255];
-
   int pos = 0;
   control[pos++] = controlFlag;
 
@@ -85,6 +88,7 @@ int receiveControlFrame(unsigned char controlFlag){
   
   // Read the control frame
   int bufferLength = llread(app.port, buffer);
+  printf("here\n");
   bufferLength = bufferLength - 4;  //remove control header from buffer size
 
   if(bufferLength < 0){
