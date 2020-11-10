@@ -11,8 +11,8 @@
 #define TLV_FILENAME    0x01  //control Flag for TLV field
 #define TLV_BLOCK       0x02
 
-#define BUFFER_MAX_SIZE   1024
-#define BLOCK_SIZE      650
+#define BUFFER_MAX_SIZE   1250
+#define BLOCK_SIZE      1000
 
 typedef struct {
     int fd;     //file descriptor of image
