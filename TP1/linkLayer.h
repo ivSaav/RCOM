@@ -59,8 +59,6 @@ typedef struct {
     bool timeout;                   /*Flag to check if a timeout occured*/
     bool send;                      /*Flag to check if it is sending information*/
     unsigned char frame[MAX_SIZE];  /*Buffer to hold the frame receveid or to be sent*/
-
-    stats* st;
 } linkLayer;
 
 enum state {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, DESTUFFING};
