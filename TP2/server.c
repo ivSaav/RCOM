@@ -46,7 +46,7 @@ int sendCommand(int socketfd, char* cmd) {
 int getResponse(int socketfd) {
     int n;
     char *buff[512];
-    if ((n = recv(socketfd, buff, 512, 0)) < 0) {
+    if ((n = recv(socketfd, buff, 512, MSG_DONTROUTE)) < 0) {
         perror("Couldn't read response");
         exit(1);
     }
@@ -68,14 +68,14 @@ int userLogin(int socketfd, const char *user, const char *pass) {
         perror("user login");
         exit(1);
     }
-
+    printf("logged\n");
     char passCmd[BUFF_SIZE];
     sprintf(passCmd, "PASS %s", passCmd);
     if (sendCommand(socketfd, passCmd)) {
         perror("user pass");
         exit(1);
     }
-
+    printf("passads\n");
     return 0;
 }
 
