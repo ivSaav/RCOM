@@ -25,12 +25,18 @@ int main(int argc, char** argv){
 
     /*send a string to the server*/
 
-	userLogin(socketfd, "anonymous", "1234");
-	// getResponse(socketfd);
-	// sendCommand(socketfd,  	"pass pwd");
+	if (userLogin(socketfd, "anonymous", "1234")) {
+		perror("Couldn't login user");
+		exit(1);
+	}
 
-	sendCommand(socketfd,  	"pasv\n");
-	getResponse(socketfd);
+	if (sendCommand(socketfd, "PASV")) {
+		perror("pasv");exit(1);
+	}
+	if (getResponse(socketfd))  {
+		perror("res");
+		exit(1);
+	}
 	
 	
 	// // write> user anonymous

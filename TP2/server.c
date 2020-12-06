@@ -18,6 +18,10 @@ int initConnection(char *ip, int socketfd,  int serverPort) {
 	}
 	printf("connection established\n");
 
+    if(getResponse(socketfd)) {
+        exit(1);
+    }
+
     return 0;
 }
 
@@ -33,6 +37,7 @@ int sendCommand(int socketfd, char* cmd) {
         perror("Connection closed");
         exit(2);
     }
+
     getResponse(socketfd);
     // printf("sent %d bytes\n", n);
     return 0;
@@ -58,14 +63,14 @@ int getResponse(int socketfd) {
 int userLogin(int socketfd, const char *user, const char *pass) {
 
     char userCmd[BUFF_SIZE];
-    sprintf(userCmd, "user %s\n", userCmd);
+    sprintf(userCmd, "USER %s", userCmd);
     if (sendCommand(socketfd, userCmd)) {
         perror("user login");
         exit(1);
     }
 
     char passCmd[BUFF_SIZE];
-    sprintf(passCmd, "pass %s\n", passCmd);
+    sprintf(passCmd, "PASS %s", passCmd);
     if (sendCommand(socketfd, passCmd)) {
         perror("user pass");
         exit(1);
