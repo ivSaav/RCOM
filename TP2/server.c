@@ -28,7 +28,7 @@ int initConnection(char *ip, int socketfd,  int serverPort) {
 int sendCommand(int socketfd, char* cmd) {
 
     int n;
-    if ((n = send(socketfd, cmd, strlen(cmd), MSG_OOB)) < 0){
+    if ((n = send(socketfd, cmd, strlen(cmd), 0)) < 0){
         perror("Couldn't send command");
         exit(1);
     }
@@ -38,44 +38,50 @@ int sendCommand(int socketfd, char* cmd) {
         exit(2);
     }
 
-    getResponse(socketfd);
     // printf("sent %d bytes\n", n);
     return 0;
 }
 
 int getResponse(int socketfd) {
-    int n;
-    char *buff[512];
-    if ((n = recv(socketfd, buff, 512, MSG_DONTROUTE)) < 0) {
-        perror("Couldn't read response");
-        exit(1);
+    
+    FILE* fp = fdopen(socketfd, "r");
+    char * buff;
+	size_t n = 0;
+
+    while (1){
+        getline(&buff, &n, fp);
+        printf("%s", buff);
+
+        if (buff[3] == ' ')
+            break;
+
     }
 
-    printf("%s\n", buff);
+    fflush(stdout);
 
-    if (n == 0) {
-        perror("Connection closed");
-        exit(1);
-    }
     return 0;
 }
 
 int userLogin(int socketfd, const char *user, const char *pass) {
 
-    char userCmd[BUFF_SIZE];
-    sprintf(userCmd, "USER %s", userCmd);
-    if (sendCommand(socketfd, userCmd)) {
+    char cmd[BUFF_SIZE];
+    sprintf(cmd, "user %s\r\n", user);
+    if (sendCommand(socketfd, cmd)) {
         perror("user login");
         exit(1);
     }
-    printf("logged\n");
-    char passCmd[BUFF_SIZE];
-    sprintf(passCmd, "PASS %s", passCmd);
-    if (sendCommand(socketfd, passCmd)) {
+
+    getResponse(socketfd);
+
+    memset(cmd, 0, BUFF_SIZE);
+
+    sprintf(cmd, "pass %s\r\n", pass);
+    if (sendCommand(socketfd, cmd)) {
         perror("user pass");
         exit(1);
     }
-    printf("passads\n");
+    getResponse(socketfd);
+
     return 0;
 }
 

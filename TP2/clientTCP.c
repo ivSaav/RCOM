@@ -6,8 +6,7 @@
 
 int main(int argc, char** argv){
 
-	int	socketfd;
-	char	buf[] = "Mensagem de teste na travessia da pilha TCP/IP\n";  
+	int	socketfd; 
 	int	bytes;
 	
 	
@@ -25,12 +24,12 @@ int main(int argc, char** argv){
 
     /*send a string to the server*/
 
-	if (userLogin(socketfd, "anonymous", "1234")) {
+	if (userLogin(socketfd, "anonymous", "anonymous")) {
 		perror("Couldn't login user");
 		exit(1);
 	}
 
-	if (sendCommand(socketfd, "PASV")) {
+	if (sendCommand(socketfd, "PASV\r\n")) {
 		perror("pasv");exit(1);
 	}
 	if (getResponse(socketfd))  {
@@ -43,9 +42,11 @@ int main(int argc, char** argv){
 	// // write> pass bla
 	// //write pasv
 
-	// char * res[512];
-	// bytes = read(socketfd, res, 512);
-	// printf("%s \n", res);
+	// while(1)  {
+	// 	char * res[1024];
+	// 	bytes = read(socketfd, res, 1024);
+	// 	printf("%s \n", res);
+	// }
 
 	close(socketfd);
 	exit(0);
