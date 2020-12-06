@@ -18,6 +18,9 @@ int initConnection(char *domain, int socketfd,  int serverPort);
 
 int sendCommand(int socketfd, char *cmd);
 
-int getResponse(int socketfd);
+int getResponse(int socketfd, char *res);
+int readResponse(int socketfd, char *ret);
 
 int userLogin(int socketfd, const char *user, const char *pass);
+
+int parsePassiveResponse(int socketfd, char *ip);

@@ -18,7 +18,7 @@ int initConnection(char *ip, int socketfd,  int serverPort) {
 	}
 	printf("connection established\n");
 
-    if(getResponse(socketfd)) {
+    if(	readResponse(socketfd, NULL)) {
         exit(1);
     }
 
@@ -38,26 +38,26 @@ int sendCommand(int socketfd, char* cmd) {
         exit(2);
     }
 
-    // printf("sent %d bytes\n", n);
+    // printf("> %s\n", cmd);
     return 0;
 }
 
-int getResponse(int socketfd) {
-    
-    FILE* fp = fdopen(socketfd, "r");
-    char * buff;
-	size_t n = 0;
 
+int readResponse(int socketfd, char *ret) {
+    FILE* fp = fdopen(socketfd, "r");
+	size_t n = 0;
+    char *buff;
     while (1){
         getline(&buff, &n, fp);
-        printf("%s", buff);
 
         if (buff[3] == ' ')
             break;
-
     }
+    
+    printf("%s", buff);
 
-    fflush(stdout);
+    if (ret != NULL)
+        strcpy(ret, buff);
 
     return 0;
 }
@@ -71,7 +71,7 @@ int userLogin(int socketfd, const char *user, const char *pass) {
         exit(1);
     }
 
-    getResponse(socketfd);
+	readResponse(socketfd, NULL);
 
     memset(cmd, 0, BUFF_SIZE);
 
@@ -80,9 +80,26 @@ int userLogin(int socketfd, const char *user, const char *pass) {
         perror("user pass");
         exit(1);
     }
-    getResponse(socketfd);
+	readResponse(socketfd, NULL);
 
     return 0;
+}
+
+
+int parsePassiveResponse(int socketfd, char *ip) {
+
+    char *res = (char*) malloc(sizeof(char)*512);
+	readResponse(socketfd, res);
+
+    int ip1, ip2, ip3, ip4;
+    int port1, port2;
+    char *first;
+    first = strrchr(res, '(');
+	sscanf(first, "(%d,%d,%d,%d,%d,%d)", &ip1, &ip2, &ip3, &ip4, &port1, &port2);
+	sprintf(ip, "%d.%d.%d.%d", ip1, ip2, ip3, ip4);
+
+	return port1 * 256 + port2;
+
 }
 
 

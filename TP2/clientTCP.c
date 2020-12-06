@@ -32,21 +32,17 @@ int main(int argc, char** argv){
 	if (sendCommand(socketfd, "PASV\r\n")) {
 		perror("pasv");exit(1);
 	}
-	if (getResponse(socketfd))  {
-		perror("res");
+	// readResponse(socketfd, NULL);
+
+	char *ip = (char*) malloc(sizeof(char)*20);
+	int port = parsePassiveResponse(socketfd, ip);
+
+	printf("ip %s %d \n", ip, port);
+	
+	if (initConnection(ip, socketfd, port)) {
+		perror("Couldn't connect to server");
 		exit(1);
 	}
-	
-	
-	// // write> user anonymous
-	// // write> pass bla
-	// //write pasv
-
-	// while(1)  {
-	// 	char * res[1024];
-	// 	bytes = read(socketfd, res, 1024);
-	// 	printf("%s \n", res);
-	// }
 
 	close(socketfd);
 	exit(0);
