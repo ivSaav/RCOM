@@ -18,9 +18,6 @@ int initConnection(char *ip, int socketfd,  int serverPort) {
 	}
 	printf("connection established\n");
 
-    if(	readResponse(socketfd, NULL)) {
-        exit(1);
-    }
 
     return 0;
 }
@@ -49,12 +46,12 @@ int readResponse(int socketfd, char *ret) {
     char *buff;
     while (1){
         getline(&buff, &n, fp);
+            printf("%s", buff);
 
         if (buff[3] == ' ')
             break;
     }
     
-    printf("%s", buff);
 
     if (ret != NULL)
         strcpy(ret, buff);
@@ -95,10 +92,55 @@ int parsePassiveResponse(int socketfd, char *ip) {
     int port1, port2;
     char *first;
     first = strrchr(res, '(');
-	sscanf(first, "(%d,%d,%d,%d,%d,%d)", &ip1, &ip2, &ip3, &ip4, &port1, &port2);
+	if (sscanf(first, "(%d,%d,%d,%d,%d,%d)", &ip1, &ip2, &ip3, &ip4, &port1, &port2) < 0) {
+        perror("scanf");
+        exit(1);
+    }
 	sprintf(ip, "%d.%d.%d.%d", ip1, ip2, ip3, ip4);
 
 	return port1 * 256 + port2;
+
+}
+
+int downloadFile(int socketfd, int datafd, const char *path) {
+
+    char cmd[255];
+    // sprintf(cmd, "retr pub.txt\r\n", path);
+    sendCommand(socketfd, "retr pub.txt\r\n");
+    readResponse(socketfd, NULL);
+
+    printf("opening file\n");
+
+    int fd = open("file.txt", O_WRONLY | O_CREAT, S_IRWXU);
+
+    if (fd < 0) {
+        perror("open save file");
+        exit(1);
+    }
+        printf("reading\n");
+
+    int nread = 0, nwrite = 0;
+    char buff[MAX_SIZE];
+    while(1) {
+        nread = read(datafd, buff, MAX_SIZE);
+
+        if (nread == 0)
+            break;
+        
+        if (nread < 0) {
+            perror("Couldn't read from server");
+            exit(1);
+        }
+
+        nwrite = write(fd, buff, nread);
+
+        if (nwrite < 0){
+            perror("Couldn't write to file");
+            exit(1);
+        }
+
+        printf("cenas\n");
+    }
 
 }
 
