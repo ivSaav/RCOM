@@ -22,6 +22,7 @@ int initConnection(char *ip, int socketfd,  int serverPort) {
     return 0;
 }
 
+
 int sendCommand(int socketfd, char* cmd) {
 
     int n;
@@ -52,7 +53,6 @@ int readResponse(int socketfd, char *ret) {
             break;
     }
     
-
     if (ret != NULL)
         strcpy(ret, buff);
 
@@ -106,18 +106,15 @@ int downloadFile(int socketfd, int datafd, const char *path) {
 
     char cmd[255];
     // sprintf(cmd, "retr pub.txt\r\n", path);
-    sendCommand(socketfd, "retr pub.txt\r\n");
+    sendCommand(socketfd, "retr pipe.txt\r\n");
     readResponse(socketfd, NULL);
 
-    printf("opening file\n");
-
-    int fd = open("file.txt", O_WRONLY | O_CREAT, S_IRWXU);
+    int fd = open("file.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
 
     if (fd < 0) {
         perror("open save file");
         exit(1);
     }
-        printf("reading\n");
 
     int nread = 0, nwrite = 0;
     char buff[MAX_SIZE];
@@ -138,8 +135,6 @@ int downloadFile(int socketfd, int datafd, const char *path) {
             perror("Couldn't write to file");
             exit(1);
         }
-
-        printf("cenas\n");
     }
 
 }

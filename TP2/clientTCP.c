@@ -56,10 +56,11 @@ int main(int argc, char** argv){
 	}
 	// readResponse(datafd, NULL); FIX blocking not connecting?
 
-	downloadFile(socketfd, datafd, "pub.txt");
-	
+	downloadFile(socketfd, datafd, "pipe.txt");
+	readResponse(socketfd, NULL);
 
 	close(socketfd);
+	close(datafd);
 	exit(0);
 }
 
