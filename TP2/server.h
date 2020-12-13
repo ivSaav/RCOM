@@ -38,6 +38,6 @@ int ftpLogin(const char *user, const char *pass);
 
 int parsePassiveResponse(char *ip);
 
-int ftpDownload(const char *path);
+int ftpDownload(const char *filename, const char *path);
 
 void ftpClose();

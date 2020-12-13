@@ -169,14 +169,14 @@ int ftpLogin(const char *user, const char *pass) {
     return 0;
 }
 
-int ftpDownload(const char *path) {
+int ftpDownload(const char *filename, const char *path) {
 
     char cmd[255];
     sprintf(cmd, "retr %s\r\n", path);
     ftpCommand(ftp.socketfd, cmd);
     ftpRead(ftp.socketfd, NULL);
 
-    int fd = open("file.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+    int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
 
     if (fd < 0) {
         perror("open save file");

@@ -29,7 +29,7 @@ int main(int argc, char** argv){
 		exit(1);
 	}
 	
-	if (ftpDownload(parsedUrl.url_path)) {
+	if (ftpDownload(parsedUrl.filename, parsedUrl.url_path)) {
 		perror("ftpDownload");
 		exit(1);
 	}
