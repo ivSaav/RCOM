@@ -11,6 +11,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+typedef struct {
+    int socketfd;
+    int datafd;
+    char ip[25];
+} ftpData;
+
 #define SERVER_PORT 21
 #define SERVER_ADDR "192.168.109.136"
 
@@ -19,15 +25,19 @@
 #define BUFF_SIZE 255
 #define MAX_SIZE 1024
 
-int initConnection(char *domain, int socketfd,  int serverPort);
+int ftpInit(char *domain);
 
-int sendCommand(int socketfd, char *cmd);
+int ftpConnect(char *domain, int serverPort);
 
-int getResponse(int socketfd, char *res);
-int readResponse(int socketfd, char *ret);
+int ftpPassiveMode();
 
-int userLogin(int socketfd, const char *user, const char *pass);
+int ftpCommand(int socketfd, char *cmd);
+int ftpRead(int socketfd, char *ret);
 
-int parsePassiveResponse(int socketfd, char *ip);
+int ftpLogin(const char *user, const char *pass);
 
-int downloadFile(int socketfd, int datafd, const char *path);
+int parsePassiveResponse(char *ip);
+
+int ftpDownload(const char *path);
+
+void ftpClose();

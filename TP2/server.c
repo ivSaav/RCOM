@@ -1,14 +1,40 @@
 #include "server.h"
 
-int initConnection(char *ip, int socketfd,  int serverPort) {
+static ftpData ftp;
+
+int ftpInit(char * domain) {
+    
+    if ((ftp.socketfd = ftpConnect(domain, SERVER_PORT)) < 0) {
+        perror("ftpConnect");
+        exit(1);
+    }
+
+    if (ftpRead(ftp.socketfd, NULL)) {
+        perror("ftpRead");
+        exit(1);
+    }
+
+    return 0;
+}
+
+int ftpConnect(char *ip, int serverPort) {
     
     struct	sockaddr_in server_addr;
+
+    int socketfd;
 
     /*server address handling*/
 	bzero((char*)&server_addr,sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = inet_addr(ip);	/*32 bit Internet address network byte ordered*/
 	server_addr.sin_port = htons(serverPort);		/*server TCP port must be network byte ordered */
+
+    /*open a TCP socket*/
+	if ((socketfd = socket(AF_INET,SOCK_STREAM,0)) < 0) {
+    		perror("socket()");
+        	exit(0);
+    	}
+	printf("oppened socket \n");
     
     printf("connecting to server...\n");
 	/*connect to the server*/
@@ -18,12 +44,49 @@ int initConnection(char *ip, int socketfd,  int serverPort) {
 	}
 	printf("connection established\n");
 
-
-    return 0;
+    return socketfd;
 }
 
+int ftpPassiveMode() {
 
-int sendCommand(int socketfd, char* cmd) {
+	if (ftpCommand(ftp.socketfd, "pasv\r\n")) {
+		perror("pasv");exit(1);
+	}
+
+    char *ip = (char*) malloc(sizeof(char)*20);
+	int port = parsePassiveResponse(ip);
+
+	printf("ip %s %d \n", ip, port);
+
+    if ((ftp.datafd = ftpConnect(ip, port)) < 0) {
+        perror("ftpConnect");
+        exit(1);
+    }
+
+    return 0;
+
+}
+
+int parsePassiveResponse( char *ip) {
+
+    char *res = (char*) malloc(sizeof(char)*512);
+	ftpRead(ftp.socketfd, res);
+
+    int ip1, ip2, ip3, ip4;
+    int port1, port2;
+    char *first;
+    first = strrchr(res, '(');
+	if (sscanf(first, "(%d,%d,%d,%d,%d,%d)", &ip1, &ip2, &ip3, &ip4, &port1, &port2) < 0) {
+        perror("scanf");
+        exit(1);
+    }
+	sprintf(ip, "%d.%d.%d.%d", ip1, ip2, ip3, ip4);
+
+	return port1 * 256 + port2;
+
+}
+
+int ftpCommand(int socketfd, char* cmd) {
 
     int n;
     if ((n = send(socketfd, cmd, strlen(cmd), 0)) < 0){
@@ -41,7 +104,8 @@ int sendCommand(int socketfd, char* cmd) {
 }
 
 
-int readResponse(int socketfd, char *ret) {
+int ftpRead(int socketfd, char *ret) {
+
     FILE* fp = fdopen(socketfd, "r");
 	size_t n = 0;
     char *buff;
@@ -59,55 +123,35 @@ int readResponse(int socketfd, char *ret) {
     return 0;
 }
 
-int userLogin(int socketfd, const char *user, const char *pass) {
+int ftpLogin(const char *user, const char *pass) {
 
     char cmd[BUFF_SIZE];
     sprintf(cmd, "user %s\r\n", user);
-    if (sendCommand(socketfd, cmd)) {
+    if (ftpCommand(ftp.socketfd, cmd)) {
         perror("user login");
         exit(1);
     }
 
-	readResponse(socketfd, NULL);
+	ftpRead(ftp.socketfd, NULL);
 
     memset(cmd, 0, BUFF_SIZE);
 
     sprintf(cmd, "pass %s\r\n", pass);
-    if (sendCommand(socketfd, cmd)) {
+    if (ftpCommand(ftp.socketfd, cmd)) {
         perror("user pass");
         exit(1);
     }
-	readResponse(socketfd, NULL);
+	ftpRead(ftp.socketfd, NULL);
 
     return 0;
 }
 
-
-int parsePassiveResponse(int socketfd, char *ip) {
-
-    char *res = (char*) malloc(sizeof(char)*512);
-	readResponse(socketfd, res);
-
-    int ip1, ip2, ip3, ip4;
-    int port1, port2;
-    char *first;
-    first = strrchr(res, '(');
-	if (sscanf(first, "(%d,%d,%d,%d,%d,%d)", &ip1, &ip2, &ip3, &ip4, &port1, &port2) < 0) {
-        perror("scanf");
-        exit(1);
-    }
-	sprintf(ip, "%d.%d.%d.%d", ip1, ip2, ip3, ip4);
-
-	return port1 * 256 + port2;
-
-}
-
-int downloadFile(int socketfd, int datafd, const char *path) {
+int ftpDownload(const char *path) {
 
     char cmd[255];
     // sprintf(cmd, "retr pub.txt\r\n", path);
-    sendCommand(socketfd, "retr pipe.txt\r\n");
-    readResponse(socketfd, NULL);
+    ftpCommand(ftp.socketfd, "retr pipe.txt\r\n");
+    ftpRead(ftp.socketfd, NULL);
 
     int fd = open("file.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
 
@@ -119,7 +163,7 @@ int downloadFile(int socketfd, int datafd, const char *path) {
     int nread = 0, nwrite = 0;
     char buff[MAX_SIZE];
     while(1) {
-        nread = read(datafd, buff, MAX_SIZE);
+        nread = read(ftp.datafd, buff, MAX_SIZE);
 
         if (nread == 0)
             break;
@@ -137,6 +181,14 @@ int downloadFile(int socketfd, int datafd, const char *path) {
         }
     }
 
+    ftpRead(ftp.socketfd, NULL);
+    return 0;
+
+}
+
+void ftpClose() {
+    close(ftp.socketfd);
+	close(ftp.datafd);
 }
 
 
