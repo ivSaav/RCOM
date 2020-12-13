@@ -2,13 +2,14 @@
 
 
 #include "server.h"
-
+#include "parseArgs.h"
 
 int main(int argc, char** argv){
 
 	int	socketfd; 
 	int	bytes;
 	
+	arg_url parsedUrl = parseUrl(argv[1]);
 	
 	/*open a TCP socket*/
 	if ((socketfd = socket(AF_INET,SOCK_STREAM,0)) < 0) {
