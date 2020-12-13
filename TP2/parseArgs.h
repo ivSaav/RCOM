@@ -9,6 +9,7 @@ typedef struct {
     char *password;
     char *host;
     char* url_path;
+    char *filename;
 } arg_url;
 
 arg_url parseUrl(char* url);

@@ -11,7 +11,10 @@ int main(int argc, char** argv){
 	
 	arg_url parsedUrl = parseUrl(argv[1]);
 
-	ftpInit(SERVER_ADDR);
+	if (ftpInit(parsedUrl.host)) {
+		perror("ftpInit");
+		exit(1);
+	}
 
     /*send a string to the server*/
 
@@ -26,10 +29,13 @@ int main(int argc, char** argv){
 		exit(1);
 	}
 	
-	printf("%s\n", parsedUrl.url_path);
-	ftpDownload(parsedUrl.url_path);
+	if (ftpDownload(parsedUrl.url_path)) {
+		perror("ftpDownload");
+		exit(1);
+	}
 	
 	ftpClose();
+
 	exit(0);
 }
 

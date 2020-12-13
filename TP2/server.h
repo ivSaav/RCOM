@@ -17,7 +17,7 @@ typedef struct {
     char ip[25];
 } ftpData;
 
-#define SERVER_PORT 21
+#define FTP_PORT 21
 #define SERVER_ADDR "192.168.109.136"
 
 #define SERVER_ADDR2 "193.137.29.15"
@@ -25,7 +25,7 @@ typedef struct {
 #define BUFF_SIZE 255
 #define MAX_SIZE 1024
 
-int ftpInit(char *domain);
+int ftpInit(const char *hostname);
 
 int ftpConnect(char *domain, int serverPort);
 

@@ -2,9 +2,21 @@
 
 static ftpData ftp;
 
-int ftpInit(char * domain) {
+int ftpInit(const char *hostname) {
+
+    struct hostent *h;
+
+    if ((h=gethostbyname(hostname)) == NULL) {  
+            herror("gethostbyname");
+            exit(1);
+    }
+
+    printf("Host name  : %s\n", h->h_name);
+    printf("IP Address : %s\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
+
+    char *ip = inet_ntoa(*((struct in_addr *)h->h_addr));
     
-    if ((ftp.socketfd = ftpConnect(domain, SERVER_PORT)) < 0) {
+    if ((ftp.socketfd = ftpConnect(ip, FTP_PORT)) < 0) {
         perror("ftpConnect");
         exit(1);
     }
@@ -16,6 +28,8 @@ int ftpInit(char * domain) {
 
     return 0;
 }
+
+
 
 int ftpConnect(char *ip, int serverPort) {
     
@@ -70,7 +84,10 @@ int ftpPassiveMode() {
 int parsePassiveResponse( char *ip) {
 
     char *res = (char*) malloc(sizeof(char)*512);
-	ftpRead(ftp.socketfd, res);
+	if (ftpRead(ftp.socketfd, res)) {
+        perror("ftpRead");
+        exit(1);
+    }
 
     int ip1, ip2, ip3, ip4;
     int port1, port2;
@@ -132,7 +149,10 @@ int ftpLogin(const char *user, const char *pass) {
         exit(1);
     }
 
-	ftpRead(ftp.socketfd, NULL);
+	if (ftpRead(ftp.socketfd, NULL)) {
+        perror("ftpRead");
+        exit(1);
+    }
 
     memset(cmd, 0, BUFF_SIZE);
 
@@ -141,7 +161,10 @@ int ftpLogin(const char *user, const char *pass) {
         perror("user pass");
         exit(1);
     }
-	ftpRead(ftp.socketfd, NULL);
+	if(ftpRead(ftp.socketfd, NULL)) {
+        perror("ftpRead");
+        exit(1);
+    }
 
     return 0;
 }
