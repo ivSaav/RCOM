@@ -91,5 +91,9 @@ arg_url parseUrl(char* url){
         exit(1);
     }
 
+    if (parsedUrl.password == "") {
+        parsedUrl.password = "anonymous";
+    }
+
     return parsedUrl;
 }

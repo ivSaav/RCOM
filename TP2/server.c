@@ -128,12 +128,13 @@ int ftpRead(int socketfd, char *ret) {
     char *buff;
     while (1){
         getline(&buff, &n, fp);
-            printf("%s", buff);
 
         if (buff[3] == ' ')
             break;
     }
     
+    printf("%s", buff);
+
     if (ret != NULL)
         strcpy(ret, buff);
 
